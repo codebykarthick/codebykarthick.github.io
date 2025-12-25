@@ -1,0 +1,14 @@
+# The primary author of this site.
+# Must be the same as `author` in `_config.yml`.
+author1:
+  name:              Karthick
+
+  # Used at the bottom of each page and at the top of the `about` layout
+  about:             |
+    Software Developer passionate about building great software.
+
+  # Social media icons in sidebar
+  # Only GitHub and LinkedIn
+  social:
+    github:          codebykarthick
+    linkedin:        sriharikarthick
