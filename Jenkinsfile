@@ -1,5 +1,5 @@
 // Loads the library from 
-@Library("ci-lib") _
+@Library("ci-shared-lib") _
 
 pipeline {
     agent any
