@@ -7,32 +7,40 @@ pipeline {
     stages {
         // Clone the repo
         stage("Git Clone") {
-            gitClone(
-                url: env.GIT_URL,
-                branch: params.BRANCH
-            )
+            steps {
+                gitClone(
+                    url: env.GIT_URL,
+                    branch: params.BRANCH
+                )
+            }
         }
 
         // Build once linting and running tests if needed
         // to see any errors
         stage("Jekyll test build") {
-            buildJekyll()
+            steps {
+                buildJekyll()
+            }
         }
 
         // Build the final docker image
         stage("Build Docker Image") {
-            dockerBuild(
-                imageName: 'jekyll-github-pages'
-            )
+            steps {
+                dockerBuild(
+                    imageName: 'jekyll-github-pages'
+                )
+            }
         }
 
         // Deploy the final docker image
         stage("Deploy Docker Image") {
-            dockerDeploy(
-                imageName: 'jekyll-github-pages:latest',
-                containerName: 'jekyll-github-pages',
-                ports: ['4000:4000']
-            )
+            steps {
+                dockerDeploy(
+                    imageName: 'jekyll-github-pages:latest',
+                    containerName: 'jekyll-github-pages',
+                    ports: ['4000:4000']
+                )
+            }
         }
     }
 }
