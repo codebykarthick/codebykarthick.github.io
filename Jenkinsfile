@@ -9,6 +9,7 @@ pipeline {
             steps {
                 echo "Building from: ${env.GIT_URL}"
                 echo "Branch: ${params.BRANCH}"
+                echo "Branch: ${env.GIT_BRANCH}"
                 echo "Commit: ${env.GIT_COMMIT}"
             }
         }
