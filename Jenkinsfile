@@ -8,7 +8,7 @@ pipeline {
         stage("Git Clone") {
             steps {
                 echo "Building from: ${env.GIT_URL}"
-                echo "Branch: ${params.Branch}"
+                echo "Branch: ${params.BRANCH}"
                 echo "Commit: ${env.GIT_COMMIT}"
             }
         }
