@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { getCollection } from "astro:content";
 import Badge from "../components/Badge.astro";
 import PageIntro from "../components/PageIntro.astro";
+import TagList from "../components/TagList.astro";
 import { profile, SECTIONS } from "../data/profile";
 import Landing from "../layouts/Landing.astro";
 import { formatDate } from "../lib/content";
@@ -14,6 +15,12 @@ const byOrder = <T extends { data: { order: number } }>(list: T[]) => list.sort(
 const experience = byOrder(await getCollection("experience"));
 const education = byOrder(await getCollection("education"));
 const range = (start: Date, end?: Date) => `${formatDate(start)} to ${end ? formatDate(end) : "present"}`;
+// From the CV's "Technical skills" section.
+const skills = [
+  { group: "Backend and data", items: ["Python", "Java", "Spring Boot", "API development", "PostgreSQL", "Redis caching", "DBOS durable workflows"] },
+  { group: "Applied AI", items: ["PydanticAI", "Agent orchestration", "LLM API integration", "LLM evaluation", "Model fine-tuning", "Document processing"] },
+  { group: "Cloud and delivery", items: ["Microsoft Azure (App Service, Foundry, Azure Machine Learning)", "Docker", "Kubernetes", "OpenShift", "Terraform", "GitHub Actions", "CI/CD"] },
+];
 const timelines = [
   { id: "experience", title: "Experience", entries: experience.map((e) => ({ ...e.data, heading: e.data.role, id: e.id })) },
   { id: "education", title: "Education", entries: education.map((e) => ({ ...e.data, heading: e.data.degree, id: e.id })) },
@@ -22,15 +29,23 @@ const timelines = [
 
 <Landing title={section.label} description={section.blurb} scene="desert">
   <div class="wrap">
-    <PageIntro title="About me" lede={`${profile.name}, ${profile.role}.`} />
+    <PageIntro title="About me" lede={`${profile.name}, ${profile.role} in London.`} />
 
     <div class="panel panel--solid about">
       <section aria-labelledby="intro-title">
         <h2 id="intro-title">Who I am</h2>
-        <p class="placeholder-text">
-          <Badge tone="amber" outline>Placeholder</Badge> A short introduction goes here: what I work on, what I'm good at, and what
-          I'm learning now. Two or three sentences is plenty. Edit it in <code>src/pages/about.astro</code>.
-        </p>
+        <div class="intro">
+          <p>
+            I'm a machine learning engineer with 4+ years of software engineering experience across insurance and corporate
+            banking. I build production LLM systems, with experience in agent orchestration, LLM evaluation, asynchronous
+            workflows and API development.
+          </p>
+          <p>
+            At Faculty I helped reduce underwriting turnaround from 12 days to 2 days, and I lead technical expansion into
+            additional insurance product lines. Outside work, I'm learning Go systems engineering by building{" "}
+            <a href="/projects/inferenceflow">InferenceFlow</a>.
+          </p>
+        </div>
       </section>
 
       <section class="cv" aria-labelledby="cv-title">
@@ -38,7 +53,7 @@ const timelines = [
         {
           hasCv ? (
             <p>
-              <a class="btn btn--primary" href="/cv.pdf" download>
+              <a class="btn btn--primary" href="/cv.pdf" download="Sri-Narayanasamy-CV.pdf">
                 Download my CV (PDF)
               </a>
             </p>
@@ -81,6 +96,22 @@ const timelines = [
         ))
       }
 
+      <section aria-labelledby="skills-title">
+        <h2 id="skills-title">Skills</h2>
+        <dl class="skills">
+          {
+            skills.map((s) => (
+              <div>
+                <dt>{s.group}</dt>
+                <dd>
+                  <TagList items={s.items.map((label) => ({ label }))} />
+                </dd>
+              </div>
+            ))
+          }
+        </dl>
+      </section>
+
       <section aria-labelledby="links-title">
         <h2 id="links-title">Elsewhere</h2>
         <ul class="elsewhere">
@@ -95,7 +126,11 @@ const timelines = [
 <style>
   .about { display: grid; gap: var(--space-5); max-width: 860px; margin-bottom: var(--space-6); padding: clamp(var(--space-4), 4vw, var(--space-6)); }
   .about h2 { margin-bottom: var(--space-3); }
-  .placeholder-text { color: var(--ink-dim); max-width: 62ch; }
+  .intro { max-width: 62ch; }
+  .intro p:last-child { margin-bottom: 0; }
+  .skills { display: grid; gap: var(--space-3); margin: 0; }
+  .skills dt { font-family: var(--display); font-weight: 600; font-size: 0.95rem; color: var(--ink-dim); margin-bottom: var(--space-2); }
+  .skills dd { margin: 0; }
   .muted { color: var(--ink-dim); }
   .btn--primary { color: var(--night); background: var(--cyan); border-color: var(--cyan); font-weight: 600; }
   .btn--primary:hover { color: var(--night); background: var(--ink); }
