@@ -1,0 +1,20 @@
+---
+import Base, { type Props as BaseProps } from "./Base.astro";
+
+/** Reading pages: ambient scene, text on a near-opaque panel so contrast never depends on the scene. */
+type Props = Omit<BaseProps, "mode">;
+const props = Astro.props;
+---
+
+<Base {...props} mode="ambient">
+  <div class="wrap reading">
+    <article class="panel panel--solid reading__panel">
+      <slot />
+    </article>
+  </div>
+</Base>
+
+<style>
+  .reading { padding-block: var(--space-5) var(--space-6); }
+  .reading__panel { padding: clamp(var(--space-4), 4vw, var(--space-6)); }
+</style>

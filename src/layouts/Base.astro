@@ -1,0 +1,74 @@
+---
+import { Font } from "astro:assets";
+import "../styles/global.css";
+import Nav from "../components/Nav.astro";
+import PauseToggle from "../components/PauseToggle.astro";
+import SceneHost from "../components/SceneHost.astro";
+import { profile } from "../data/profile";
+import type { SceneId, SceneMode } from "../scenes/types";
+
+export interface Props {
+  title?: string;
+  description?: string;
+  scene: SceneId;
+  mode?: SceneMode;
+}
+
+const { title, description = profile.description, scene, mode = "full" } = Astro.props;
+const fullTitle = title ? `${title} | ${profile.siteTitle}` : profile.siteTitle;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#07050f" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <Font cssVariable="--font-display" preload={[{ weight: 800 }]} />
+    <Font cssVariable="--font-body" preload={[{ weight: 400 }]} />
+  </head>
+  <body data-mode={mode}>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <SceneHost scene={scene} mode={mode} />
+    <Nav />
+    <main id="main" tabindex="-1">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="wrap site-footer__inner">
+        <p>
+          Built with Astro and three.js. <a href={profile.links.source}>Source on GitHub</a>
+        </p>
+        <PauseToggle />
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  main:focus { outline: none; }
+  .site-footer {
+    position: relative;
+    padding-block: var(--space-5) max(var(--space-4), env(safe-area-inset-bottom));
+    font-size: var(--step--1);
+    color: var(--ink-dim);
+  }
+  .site-footer__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+  .site-footer p { margin: 0; }
+</style>

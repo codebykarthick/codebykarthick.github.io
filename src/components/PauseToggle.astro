@@ -1,0 +1,27 @@
+---
+---
+
+<button class="btn pause-toggle" type="button" aria-pressed="false" hidden>Pause scenes</button>
+
+<script>
+  import { PAUSE_EVENT, PAUSE_KEY, READY_EVENT, readPaused, storageSet } from "../scenes/prefs";
+
+  const btn = document.querySelector<HTMLButtonElement>(".pause-toggle");
+  if (btn) {
+    const render = (paused: boolean) => {
+      btn.setAttribute("aria-pressed", String(paused));
+      btn.textContent = paused ? "Resume scenes" : "Pause scenes";
+    };
+    render(readPaused());
+    // Only offer the toggle when there's motion to pause.
+    window.addEventListener(READY_EVENT, () => {
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) btn.hidden = false;
+    });
+    btn.addEventListener("click", () => {
+      const paused = !readPaused();
+      storageSet(PAUSE_KEY, paused ? "1" : "0");
+      render(paused);
+      window.dispatchEvent(new CustomEvent(PAUSE_EVENT, { detail: paused }));
+    });
+  }
+</script>

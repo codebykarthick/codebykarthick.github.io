@@ -1,0 +1,55 @@
+/* Design tokens. The only place colours, fonts and spacing are defined. */
+:root {
+  /* Palette (carried over from the PoC) */
+  --night: #07050f;
+  --haze: #2a1238;
+  --pink: #ff2e88;
+  --cyan: #3ff0ff;
+  --amber: #ffb347;
+  --violet: #b57bff;
+  --ink: #f1ecff;
+  --ink-dim: #b3a9cf;
+  --rule: rgba(179, 169, 207, 0.18);
+
+  /* Surfaces */
+  --panel: rgba(8, 5, 18, 0.76);       /* glass, landing pages */
+  --panel-solid: rgba(10, 7, 20, 0.95); /* reading pages: AA regardless of scene */
+  --chip-bg: rgba(8, 5, 18, 0.6);
+  --chip-on: rgba(63, 240, 255, 0.14);
+
+  /* Type */
+  --display: var(--font-display), "Oxanium", "Eurostile", "Arial Narrow", sans-serif;
+  --body: var(--font-body), "Barlow", "Helvetica Neue", Arial, sans-serif;
+  --step--1: 0.875rem;
+  --step-0: 1.125rem;
+  --step-1: 1.3rem;
+  --step-2: 1.6rem;
+  --step-3: clamp(2rem, 4vw, 2.75rem);
+  --step-hero: clamp(3.5rem, 11vw, 9rem);
+
+  /* Space */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 40px;
+  --space-6: 64px;
+  --gutter: clamp(16px, 5vw, 72px);
+  --measure: 68ch;
+
+  /* Shape */
+  --clip: 24px;
+  --clip-sm: 10px;
+  --focus: 2px solid var(--cyan);
+
+  /* Chromatic-offset display type */
+  --chroma: -3px 0 rgba(255, 46, 136, 0.82), 3px 0 rgba(63, 240, 255, 0.72);
+
+  /* Scene fallback gradients (one per scene, same palette as the 3D scene) */
+  --scene-home: radial-gradient(120% 80% at 50% 100%, #3a1640 0%, #140a26 45%, #07050f 100%);
+  --scene-metro: radial-gradient(120% 80% at 50% 100%, #12234a 0%, #0b0f2a 45%, #05060f 100%);
+  --scene-archive: radial-gradient(90% 70% at 50% 60%, #0b2a36 0%, #071620 50%, #03070c 100%);
+  --scene-construction: radial-gradient(120% 80% at 50% 100%, #4a2414 0%, #1d0d16 45%, #07050f 100%);
+  --scene-rooftop: radial-gradient(140% 90% at 50% 0%, #4a1d55 0%, #1c0b2c 50%, #07050f 100%);
+  --scene-desert: linear-gradient(180deg, #1a0b2e 0%, #5a1e4e 45%, #c4573f 72%, #2a1220 100%);
+}

@@ -1,0 +1,11 @@
+---
+import Base, { type Props as BaseProps } from "./Base.astro";
+
+/** Section landing pages: full scene, glass panels. */
+type Props = Omit<BaseProps, "mode">;
+const props = Astro.props;
+---
+
+<Base {...props} mode="full">
+  <slot />
+</Base>
