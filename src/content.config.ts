@@ -18,6 +18,8 @@ const md = (dir: string) => glob({ pattern: "**/*.md", base: `./src/content/${di
 const stage = z.object({
   title: z.string(),
   goal: z.string(),
+  /** Where this stage gets put into practice, e.g. a project phase. */
+  apply: z.string().optional(),
   learn: z.array(z.string()).default([]),
   practice: z.array(z.string()).default([]),
   doneWhen: z.array(z.string()).default([]),

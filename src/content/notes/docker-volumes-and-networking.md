@@ -6,7 +6,7 @@ topics: [containers, networking]
 updated: 2026-11-20
 ---
 
-Two questions come up the moment a Python service talks to a database in Docker: where does the database's data live, and what hostname does the app use to reach it? Both have simple answers once the model is clear.
+Two questions come up the moment a Go service talks to a database in Docker: where does the database's data live, and what hostname does the app use to reach it? Both have simple answers once the model is clear.
 
 ## Storage: three kinds of mount
 
@@ -41,10 +41,10 @@ If a volume is empty when first mounted, Docker copies the image's existing file
 ### Bind mounts
 
 ```sh
-docker run --rm -it -v "$PWD/src:/app/src" inventory-api:dev
+docker run --rm -v "$PWD:/src" -w /src golang:1.27 go test ./...
 ```
 
-Edits on the host show up in the container straight away, which is what I want for hot reload in development. The trade-offs: file ownership is the host's (a non-root container user may not be able to write), and on macOS file sharing goes through the Docker Desktop VM, so heavy I/O such as a database is noticeably slower.
+Edits on the host show up in the container straight away, which is how I run the Go toolchain against my working copy without installing it, or try a newer Go release before upgrading. A named volume for `/go/pkg/mod` (`-v gomod:/go/pkg/mod`) stops every run downloading modules again. The trade-offs: file ownership is the host's (a non-root container user may not be able to write), and on macOS file sharing goes through the Docker Desktop VM, so heavy I/O such as a database is noticeably slower.
 
 `--mount type=bind,source=...,target=...` is the more explicit syntax. Unlike `-v`, it errors if the source doesn't exist instead of silently creating an empty directory.
 
@@ -77,11 +77,11 @@ Without `127.0.0.1`, Docker publishes on all interfaces (`0.0.0.0`), so anyone o
 ### Container to container: user-defined networks
 
 ```sh
-docker network create inventory
-docker run -d --name db --network inventory -e POSTGRES_PASSWORD=dev postgres:18
-docker run --rm --network inventory \
-  -e DATABASE_URL=postgresql+psycopg://postgres:dev@db:5432/postgres \
-  inventory-api:dev
+docker network create devnet
+docker run -d --name db --network devnet -e POSTGRES_PASSWORD=dev postgres:18
+docker run --rm --network devnet \
+  -e DATABASE_URL="postgres://postgres:dev@db:5432/postgres?sslmode=disable" \
+  api:dev
 ```
 
 On a **user-defined bridge network**, Docker runs an embedded DNS server, so containers reach each other **by container name** (`db`), on the **container port** (5432). No `-p` is needed for container-to-container traffic. Publishing is only for traffic from outside Docker.
@@ -99,11 +99,11 @@ Inside a container, `localhost` means *that container*. So:
 | In a container | Directly on my Mac | `host.docker.internal` (Docker Desktop) |
 | In a container | Container on a different network, with `-p` | Not `localhost`; `host.docker.internal` plus the host port works, but a shared network is cleaner |
 
-The mirror-image mistake: a server inside a container listening on `127.0.0.1` can't be reached through a published port. It has to listen on `0.0.0.0`.
+The mirror-image mistake: a server inside a container listening on `127.0.0.1` can't be reached through a published port. It has to listen on all interfaces: in Go, `http.Server{Addr: ":8080"}` rather than `"127.0.0.1:8080"`.
 
 ```sh
 docker network ls
-docker network inspect inventory     # which containers are attached, and their IPs
+docker network inspect devnet        # which containers are attached, and their IPs
 docker exec -it db getent hosts db   # check name resolution from inside
 ```
 

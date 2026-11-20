@@ -9,35 +9,36 @@ Schemas live in `src/content.config.ts`; allowed values in `src/data/taxonomy.ts
 
 Technologies are the hub. Notes, projects and ideas reference technologies, and each technology page (`/stack/<slug>`) automatically lists everything that references it. You never maintain those lists by hand.
 
-The slug (entry id) is the filename without `.md`, for example `src/content/technologies/pytorch.md` → `pytorch`. References use slugs.
+The slug (entry id) is the filename without `.md`, for example `src/content/technologies/go.md` → `go`. References use slugs.
 
 ## Technology: `src/content/technologies/<slug>.md`
 
 ```md
 ---
-name: PyTorch
-summary: Deep learning framework I use for training and fine-tuning models.  # one line
-status: using            # learning | using | comfortable
-started: 2024-09-01
+name: NATS JetStream
+summary: Durable messaging for InferenceFlow's asynchronous phase.  # one line
+status: learning         # learning | using | comfortable
+started: 2026-12-01
 links:
-  docs: https://pytorch.org/docs/
-  repo: https://github.com/pytorch/pytorch
-language: [python]       # technologies with kind "language" it's used WITH; [] when kind includes language
-lifecycle: [build, test]  # design | build | test | deploy | operate
-domain: [ml]             # frontend | backend | data | ml | devops
-kind: [framework]        # language | framework | library | tool | platform
-prerequisites: [python]  # optional: technologies to learn first
+  docs: https://docs.nats.io/nats-concepts/jetstream
+  repo: https://github.com/nats-io/nats-server
+language: [go]           # technologies with kind "language" it's used WITH; [] when kind includes language
+lifecycle: [build, operate]  # design | build | test | deploy | operate
+domain: [backend, devops]  # frontend | backend | data | ml | devops
+kind: [platform]         # language | framework | library | tool | platform
+prerequisites: [go]      # optional: technologies to learn first
 roadmap:                 # optional: ordered learning stages
-  - title: Tensors and autograd
+  - title: Streams and consumers
     goal: One sentence on what I can do after this stage.
+    apply: "InferenceFlow P8: outbox, events, and reliable asynchronous messaging"  # optional
     learn: [Concept one, Concept two]
     practice: [An exercise]
     doneWhen: ["A checkable outcome: quoted because it contains a colon"]
-    notes: [pytorch-tensors]          # note slugs, in reading order
+    notes: [nats-streams-and-consumers]   # note slugs, in reading order; each note in at most one stage
 resources:               # optional
-  - title: PyTorch tutorials
-    url: https://pytorch.org/tutorials/
-    kind: tutorial       # docs | tutorial | course | book | video | article | tool
+  - title: JetStream docs
+    url: https://docs.nats.io/nats-concepts/jetstream
+    kind: docs           # docs | tutorial | course | book | video | article | tool
 ---
 Body in Markdown: why I'm learning it, how it fits with the rest of the stack, how to use the roadmap.
 ```
@@ -50,9 +51,9 @@ Roadmap stage notes get a "Part of the X roadmap, stage N" banner and previous/n
 
 ```md
 ---
-title: Mixed precision training in PyTorch
-summary: What autocast and GradScaler do, and when they bite.
-technologies: [pytorch, python]   # at least one
+title: Bounded fan-out with errgroup
+summary: Running at most N calls at once, and cancelling the rest when one fails.
+technologies: [go]                # at least one
 topics: [performance]             # values from taxonomy.ts topics
 updated: 2026-11-20
 ---
@@ -65,10 +66,10 @@ A note's lifecycle, domain, kind and language filter values come from its techno
 
 ```md
 ---
-title: Image classifier service
-summary: A small model behind an HTTP API, packaged as a container.
+title: Rate limiter service
+summary: Per-tenant quotas enforced by a small Go service.
 status: shipped                   # planned | building | shipped | archived
-stack: [pytorch, python, docker]
+stack: [go, postgresql, docker]
 repo: https://github.com/codebykarthick/…
 demo: https://…                   # optional
 started: 2025-01-10
@@ -80,11 +81,11 @@ ended: 2025-08-30                 # optional
 
 ```md
 ---
-title: Edge model benchmarking kit
-summary: Compare quantised models on real phones.
-status: exploring                 # raw | exploring | became-project | parked
-technologies: [pytorch]
-project: image-classifier-service  # required if and only if status is became-project
+title: Per-tenant quota experiments
+summary: Try token buckets versus leaky buckets for tenant admission control.
+status: became-project            # raw | exploring | became-project | parked
+technologies: [go]
+project: rate-limiter-service     # required if and only if status is became-project
 ---
 ```
 
@@ -117,7 +118,7 @@ Languages are technologies, not taxonomy values. Create `src/content/technologie
 
 ## Example flag
 
-`example: true` on any technology, note, project or idea shows an "Example" badge. Use it for illustrative drafts; the starting curriculum (Python, Docker, PostgreSQL, SQLAlchemy, GitHub Actions) is real content and isn't flagged.
+`example: true` on any technology, note, project or idea shows an "Example" badge. Use it for illustrative drafts; the starting curriculum (Go as an InferenceFlow companion, Docker, PostgreSQL, SQLAlchemy, GitHub Actions) is real content and isn't flagged. Sri's capstone is InferenceFlow (https://github.com/codebykarthick/system-in-go, Go); don't invent other projects or ideas unless asked.
 
 ## About page
 

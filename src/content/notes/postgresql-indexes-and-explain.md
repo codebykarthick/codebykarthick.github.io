@@ -1,26 +1,32 @@
 ---
 title: PostgreSQL indexes and EXPLAIN
-summary: How B-tree, composite, partial and expression indexes work in PostgreSQL 18, and how to read EXPLAIN ANALYZE to decide which ones the inventory schema needs.
-technologies: [postgresql]
+summary: How B-tree, composite and partial indexes work in PostgreSQL 18, how to read EXPLAIN ANALYZE, and which indexes a job-processing schema actually needs.
+technologies: [postgresql, go]
 topics: [performance, querying, debugging]
 updated: 2026-11-20
 ---
 
-An index is a separate, sorted data structure that lets Postgres find rows without reading the whole table. Indexes are not free: each one takes disk space and slows down every `INSERT`, `UPDATE` and `DELETE` on the table. The goal is the smallest set of indexes that serves the queries the application really runs, and `EXPLAIN ANALYZE` is how I find out what those queries need.
+An index is a separate, sorted structure that lets Postgres find rows without reading the whole table. Each one costs space and slows every write, and a jobs table is written constantly, so the goal is the smallest set of indexes that serves the queries the application really runs. The examples use the job-processing sketch from the essentials note.
 
 ## Generating realistic data first
 
-Plans on a ten-row table are meaningless, because Postgres will (correctly) just read the whole thing. So I load the inventory schema with generated data:
+Plans on a ten-row table are meaningless, so I load 200,000 jobs over 50 tenants, mostly finished, with 1% queued:
 
 ```sql
-INSERT INTO warehouse (name)
-SELECT 'Warehouse ' || g FROM generate_series(1, 50) AS g;
+INSERT INTO tenants (id, name)
+SELECT 'tenant-' || g, 'Tenant ' || g FROM generate_series(1, 50) AS g;
 
-INSERT INTO item (warehouse_id, sku, name, quantity, price, created_at)
-SELECT 1 + (g % 50), 'SKU-' || g, 'Item ' || g,
-       (g * 7919) % 1000,
-       round((random() * 100)::numeric, 2),
-       now() - (g % 365) * interval '1 day'
+SELECT setseed(0.42);  -- repeatable random()
+INSERT INTO jobs (tenant_id, idempotency_key, request_hash, document_ref,
+                  rule_set_version, status, created_at, next_attempt_at)
+SELECT 'tenant-' || (1 + floor(random() * 50)::int),
+       'key-' || g, md5(g::text), 'docs/' || g || '.pdf', 'rules-v3',
+       CASE WHEN g % 100 = 0 THEN 'queued'
+            WHEN g % 100 = 1 THEN 'running'
+            WHEN g % 100 < 5 THEN 'failed'
+            ELSE 'succeeded' END,
+       now() - g * interval '1 minute',
+       now() - g * interval '1 minute'
 FROM generate_series(1, 200000) AS g;
 
 ANALYZE;  -- refresh planner statistics after a bulk load
@@ -28,110 +34,125 @@ ANALYZE;  -- refresh planner statistics after a bulk load
 
 ## Reading a plan
 
-`EXPLAIN` shows the plan the planner chose with its estimates. `EXPLAIN ANALYZE` also runs the query and adds what actually happened. In Postgres 18, `ANALYZE` includes buffer counts by default.
-
-The low-stock query for one warehouse, with no index beyond the primary key and the unique `sku`:
+`EXPLAIN` shows the chosen plan with estimates; `EXPLAIN ANALYZE` also runs the query and reports what happened. In Postgres 18 it includes buffer counts by default, so it is equivalent to `EXPLAIN (ANALYZE, BUFFERS)`. The query is a tenant's most recent failed jobs:
 
 ```sql
-EXPLAIN ANALYZE SELECT * FROM item WHERE warehouse_id = 7 AND quantity < 5;
+EXPLAIN ANALYZE
+SELECT id, status, created_at FROM jobs
+WHERE tenant_id = 'tenant-7' AND status = 'failed'
+ORDER BY created_at DESC
+LIMIT 20;
 ```
 
 ```text
-Gather  (cost=1000.00..4819.51 rows=18 width=79) (actual time=4.604..5.477 rows=0.00 loops=1)
-  Workers Planned: 1
-  ->  Parallel Seq Scan on item  (cost=0.00..3817.71 rows=11 width=79) (actual time=3.281..3.281 rows=0.00 loops=2)
-        Filter: ((quantity < 5) AND (warehouse_id = 7))
-        Rows Removed by Filter: 100000
-        Buffers: shared hit=2053
-Execution Time: 5.486 ms
+Limit  (cost=4806.17..4806.22 rows=20 width=33) (actual time=3.279..3.281 rows=20.00 loops=1)
+  Buffers: shared hit=2730
+  ->  Sort  (cost=4806.17..4806.48 rows=126 width=33) (actual time=3.278..3.279 rows=20.00 loops=1)
+        Sort Key: created_at DESC
+        Sort Method: top-N heapsort  Memory: 26kB
+        ->  Bitmap Heap Scan on jobs  (cost=176.35..4802.81 rows=126 width=33) (actual time=0.615..3.255 rows=104.00 loops=1)
+              Recheck Cond: (tenant_id = 'tenant-7'::text)
+              Filter: (status = 'failed'::text)
+              Rows Removed by Filter: 3958
+              Heap Blocks: exact=2691
+              ->  Bitmap Index Scan on jobs_tenant_key_uniq  (cost=0.00..176.32 rows=4253 width=0) (actual time=0.411..0.411 rows=4062.00 loops=1)
+                    Index Cond: (tenant_id = 'tenant-7'::text)
+                    Index Searches: 1
+Execution Time: 3.326 ms
 ```
 
 How I read it:
 
-- **Read from the innermost node outwards.** Each `->` is a child that feeds its parent.
-- **cost=start..total** is in arbitrary planner units, useful only for comparing plans.
-- **rows** in the estimate versus **actual rows** is the most important comparison. A big mismatch means bad statistics or a condition the planner cannot estimate, and that is usually why it chose a poor plan. (Postgres 18 shows actual rows as an average with two decimals.)
-- **loops**: actual numbers are per loop, so multiply by `loops` for the total.
-- **Rows Removed by Filter: 100000** across two workers means it read all 200,000 rows to return none. That is the signal an index could help.
-- **Buffers: shared hit** counts 8 kB pages found in Postgres's cache; `read` means pages fetched from the operating system or disk.
+- **Innermost node first.** Each `->` is a child feeding its parent. **cost** is in planner units, only useful for comparing plans.
+- **Estimated versus actual rows** is the key comparison: 126 versus 104 here is fine. A big mismatch means poor statistics or a condition the planner cannot estimate, and that is usually why a plan is bad. Postgres 18 prints actual rows with two decimals because they are averages per loop.
+- **Rows Removed by Filter: 3958** means it fetched 4,062 rows to keep 104. That is the signal a better index would help.
+- **Buffers: shared hit** counts 8 kB pages found in Postgres's cache; `read` means pages fetched from the operating system.
 
-## B-tree indexes and scan types
+The surprise is that it already used an index: `jobs_tenant_key_uniq` on `(tenant_id, idempotency_key)`, created by the unique constraint. Its leading column is `tenant_id`, so it serves any tenant filter, and a separate index on `tenant_id` alone would be redundant.
 
-The default index type is a B-tree, which supports `=`, `<`, `>`, `BETWEEN`, `IN`, `IS NULL` and sorting.
-
-```sql
-CREATE INDEX item_warehouse_id_idx ON item (warehouse_id);
-```
-
-After this, the same query becomes a **Bitmap Index Scan** feeding a **Bitmap Heap Scan**: it collects the matching row locations from the index (4,000 rows for warehouse 7), then reads the table pages in physical order and applies `quantity < 5` as a filter. Execution time dropped from 5.5 ms to 1.4 ms, but it still removed 4,000 rows by filter.
-
-The scan types to recognise:
+## Scan types
 
 | Node | Meaning |
 | --- | --- |
 | Seq Scan | read every page of the table |
 | Index Scan | walk the index, then fetch each matching row from the table |
-| Index Only Scan | answer from the index alone (all needed columns are in it, and pages are marked all-visible by vacuum) |
-| Bitmap Index Scan + Bitmap Heap Scan | collect many matches, then read table pages in order; good for medium-sized result sets |
+| Index Only Scan | answer from the index alone, if every needed column is in it and vacuum has marked the pages all-visible |
+| Bitmap Index Scan + Bitmap Heap Scan | collect many matches, then read table pages in physical order |
 
 ## Composite indexes and column order
 
 ```sql
-CREATE INDEX item_warehouse_quantity_idx ON item (warehouse_id, quantity);
+CREATE INDEX jobs_tenant_status_created_idx ON jobs (tenant_id, status, created_at);
 ```
 
-Now both conditions are an `Index Cond`, the plan reads two buffers, and execution takes 0.02 ms. A composite index is sorted by the first column, then by the second within each value of the first, like a phone book sorted by surname then first name. The rule of thumb: **equality columns first, then the range or sort column**.
+The same query becomes an `Index Scan Backward` under `Limit`, with both conditions in `Index Cond`, 24 buffers and 0.06 ms. Reading backwards yields `created_at DESC` order, so there is no sort and it stops after 20 rows. A composite index is sorted by the first column, then the second within it, like a phone book. The rule of thumb: **equality columns first, then the range or sort column**.
 
-This index also serves `WHERE warehouse_id = 7` on its own, so the single-column `item_warehouse_id_idx` is now redundant and can be dropped.
+## Skip scan in Postgres 18
 
-Traditionally a composite index was useless for a query on only its second column. Postgres 18 adds **B-tree skip scan**: for `WHERE quantity < 5` the plan used `item_warehouse_quantity_idx` with `Index Searches: 51`, one search per distinct `warehouse_id`. That works because there are only 50 warehouses; with thousands of distinct leading values it would not pay off. I still design with the leading column first and treat skip scan as a bonus.
+Traditionally a composite index was useless for a query that skipped its leading column. Postgres 18 adds **B-tree skip scan**: for `WHERE status = 'queued'` on its own, the plan used `jobs_tenant_status_created_idx` with `Index Searches: 85`, one descent per distinct leading prefix. That pays off because there are only 50 tenants; with thousands it would not. I still design with the leading column first and treat skip scan as a bonus.
 
-Indexes also remove sorts. For "the 20 most recent items in a warehouse":
+## Partial indexes for the claim query
+
+Workers repeatedly ask for the next runnable job (the full claim with `FOR UPDATE SKIP LOCKED` is in the transactions note):
 
 ```sql
-CREATE INDEX item_warehouse_created_idx ON item (warehouse_id, created_at DESC);
-
-EXPLAIN ANALYZE
-SELECT sku FROM item WHERE warehouse_id = 7 ORDER BY created_at DESC LIMIT 20;
+SELECT id FROM jobs
+WHERE status = 'queued' AND next_attempt_at <= now()
+ORDER BY next_attempt_at
+LIMIT 10
+FOR UPDATE SKIP LOCKED;
 ```
 
-Without the index the plan was Bitmap Heap Scan, then Sort (top-N heapsort over 4,000 rows), then Limit, in 1.7 ms. With it, the plan is a plain `Index Scan` under `Limit` that stops after 20 rows, in 0.04 ms.
-
-## Partial and expression indexes
-
-A **partial index** only contains rows matching a `WHERE` clause. If the API constantly asks for low-stock items, and they are a small fraction of the table:
+Using only the composite index, the plan fetched all 2,000 queued rows and sorted them: 1.4 ms. Queued jobs are a tiny, constantly changing slice of the table, which is what a **partial index** is for:
 
 ```sql
-CREATE INDEX item_low_stock_idx ON item (warehouse_id) WHERE quantity < 10;
+CREATE INDEX jobs_runnable_idx ON jobs (next_attempt_at) WHERE status = 'queued';
 ```
 
-The planner uses it only when the query's condition implies the index's condition, so `quantity < 10` or `quantity < 5` qualifies, but `quantity < 20` does not.
+Now the plan is `Index Scan using jobs_runnable_idx` under `LockRows`, reading in `next_attempt_at` order and stopping after ten rows: 0.05 ms. The index is 64 kB against 9.7 MB for the composite one, and finished jobs never touch it. The planner only uses it when the query's condition implies the index's: `status = 'queued'` does, `status IN ('queued', 'running')` does not.
 
-An **expression index** indexes the result of an expression. A case-insensitive SKU lookup does a sequential scan, even with the unique index on `sku`, until the expression itself is indexed:
+## Keyset pagination
+
+`LIMIT 20 OFFSET 3000` makes Postgres produce 3,020 rows and discard 3,000, so every page is slower than the last. Keyset pagination passes the last row seen instead, with `id` as a tie-breaker:
 
 ```sql
-CREATE INDEX item_sku_lower_idx ON item (lower(sku));
-SELECT * FROM item WHERE lower(sku) = 'sku-42';  -- now uses the index
+SELECT id, status, created_at FROM jobs
+WHERE tenant_id = $1 AND status = $2
+  AND (created_at, id) < ($3, $4)
+ORDER BY created_at DESC, id DESC
+LIMIT 20;
 ```
 
-For `jsonb` columns, a **GIN** index (`USING gin (attributes)`) supports containment queries such as `attributes @> '{"colour": "red"}'`.
+With `id` appended to the index, `(tenant_id, status, created_at, id)`, the whole row comparison became an `Index Cond` and, after a `VACUUM`, the plan was an `Index Only Scan Backward` with `Heap Fetches: 0`.
+
+## Plans for queries sent from Go
+
+pgx prepares and caches statements by default, and sqlc queries use `$1` placeholders. After five executions Postgres may switch a prepared statement to a **generic plan** that ignores the actual parameter values. I can see that plan without values using `EXPLAIN (GENERIC_PLAN)`:
+
+```sql
+EXPLAIN (GENERIC_PLAN)
+SELECT id FROM jobs WHERE status = $1 AND next_attempt_at <= now()
+ORDER BY next_attempt_at LIMIT 10;
+```
+
+This gave a parallel sequential scan: with `status = $1`, the planner cannot prove the partial index applies. So in the sqlc query file I write `status = 'queued'` as a literal. Skewed columns suffer too, since a generic plan estimates 50,000 rows for any status when `queued` has 2,000 and `succeeded` 190,000.
 
 ## Gotchas
 
-- **Foreign keys are not indexed automatically.** `PRIMARY KEY` and `UNIQUE` create indexes; `REFERENCES` does not. Without an index on `item.warehouse_id`, deleting a warehouse scans the whole `item` table to check for children.
-- **EXPLAIN ANALYZE executes the statement.** For `UPDATE` or `DELETE`, wrap it: `BEGIN; EXPLAIN ANALYZE UPDATE ...; ROLLBACK;`.
-- **A sequential scan is not always wrong.** If a query returns a large share of the table, reading it sequentially is cheaper than thousands of random index lookups.
-- **Functions and casts on the column hide it from the index.** `WHERE lower(sku) = ...` or `WHERE created_at::date = ...` cannot use a plain index on that column.
-- **`CREATE INDEX` blocks writes to the table.** On a live table use `CREATE INDEX CONCURRENTLY`, which cannot run inside a transaction block (this matters for Alembic migrations).
+- **Foreign keys are not indexed automatically.** `PRIMARY KEY` and `UNIQUE` create indexes; `REFERENCES` does not. Here the unique constraints happen to lead with `tenant_id` and `job_id`, so both foreign keys are covered; without that, deleting a job would scan `job_attempts`.
+- **EXPLAIN ANALYZE executes the statement.** For writes, wrap it: `BEGIN; EXPLAIN ANALYZE UPDATE ...; ROLLBACK;`.
+- **A sequential scan is not always wrong.** `WHERE status = 'succeeded'` matches 95% of rows, and a sequential scan is the right plan.
+- **Functions on the column hide it from the index.** `date_trunc('day', created_at) = ...` scanned the whole table. Rewrite it as a range (`created_at >= ... AND created_at < ...`). An expression index is the alternative, but only for immutable expressions, and `date_trunc` on `timestamptz` depends on `TimeZone`, so Postgres refuses it.
+- **`CREATE INDEX` blocks writes.** On a live table use `CREATE INDEX CONCURRENTLY`, which cannot run inside a transaction, so the goose migration needs `-- +goose NO TRANSACTION`.
 - **Stale statistics cause bad plans.** Autovacuum normally runs `ANALYZE`, but after a bulk load I run it by hand.
 
 ## Check yourself
 
-1. In a plan, what does a large gap between estimated `rows` and actual `rows` tell me, and what is the first thing to try?
-2. Why does an index on `(warehouse_id, quantity)` make a separate index on `(warehouse_id)` redundant, but not one on `(quantity)` in general?
-3. When would the planner use `item_low_stock_idx`, and when would it ignore it?
-4. Why would an index on `item.warehouse_id` be worth having even if the API never filtered items by warehouse?
-5. How do I safely see the plan of a `DELETE` without deleting anything?
+1. In a plan, what does a large gap between estimated and actual rows tell me, and what is the first thing to try?
+2. Why did the first query use the unique constraint's index, and what makes a separate `tenant_id` index redundant?
+3. When does the planner use `jobs_runnable_idx`, and why does `status = $1` in a prepared statement stop it?
+4. Why is keyset pagination faster than `OFFSET` for deep pages, and why does it need `id` as a tie-breaker?
+5. What does Postgres 18 skip scan change about column order, and when does it stop helping?
 
 ## Further reading
 
@@ -140,4 +161,5 @@ For `jsonb` columns, a **GIN** index (`USING gin (attributes)`) supports contain
 - [Partial indexes](https://www.postgresql.org/docs/current/indexes-partial.html)
 - [Using EXPLAIN](https://www.postgresql.org/docs/current/using-explain.html)
 - [CREATE INDEX, including CONCURRENTLY](https://www.postgresql.org/docs/current/sql-createindex.html)
+- [pgx v5 package documentation, query exec modes](https://pkg.go.dev/github.com/jackc/pgx/v5)
 - [Use the index, Luke](https://use-the-index-luke.com/)

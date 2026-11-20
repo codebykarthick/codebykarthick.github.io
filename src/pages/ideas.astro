@@ -19,6 +19,14 @@ const rendered = await Promise.all(ideas.map(async (i) => ({ idea: i, Content: (
 <Landing title={section.label} description={section.blurb} scene="rooftop">
   <div class="wrap">
     <PageIntro title="Ideas" lede="Things I might build next, and where each one stands. Some grow up into projects." />
+    {
+      rendered.length === 0 && (
+        <div class="panel panel--solid empty">
+          <p>Nothing here yet.</p>
+          <p class="empty__hint">Ideas land here before they turn into projects.</p>
+        </div>
+      )
+    }
     <ul class="ideas" role="list">
       {
         rendered.map(({ idea, Content }) => {
@@ -49,6 +57,10 @@ const rendered = await Promise.all(ideas.map(async (i) => ({ idea: i, Content: (
 </Landing>
 
 <style>
+  .empty { max-width: 860px; margin-bottom: var(--space-6); }
+  .empty p { margin: 0; }
+  .empty__hint { color: var(--ink-dim); margin-top: var(--space-2) !important; }
+  .ideas:empty { display: none; }
   .ideas { list-style: none; margin: 0 0 var(--space-6); padding: 0; display: grid; gap: var(--space-4); max-width: 860px; }
   .idea { scroll-margin-top: var(--space-5); }
   .idea:target { border-top-color: var(--pink); }

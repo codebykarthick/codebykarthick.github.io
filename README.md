@@ -46,7 +46,7 @@ This README is my own how-to guide: how to add things to the site without having
 
 Every recipe below works now.
 
-The site starts with a real learning curriculum: roadmaps for Python, Docker, PostgreSQL, SQLAlchemy and GitHub Actions, notes for each roadmap stage, and the inventory API capstone project that ties them together. The About page has placeholder entries, marked with a "Placeholder" badge, waiting for the CV.
+The site starts with a learning curriculum: a Go roadmap on advanced patterns and good practices, written as a companion to my [InferenceFlow](https://github.com/codebykarthick/system-in-go) capstone (each stage names the project phase where it's applied), plus roadmaps and notes for Docker, PostgreSQL, SQLAlchemy and GitHub Actions. InferenceFlow is the one project. The About page has placeholder entries, marked with a "Placeholder" badge, waiting for the CV.
 
 ---
 
@@ -88,7 +88,7 @@ Two things only work after `npm run build` + `npm run preview`, not in `npm run 
      └── project ──▶ a project (when the idea became one)
 ```
 
-You only ever write the arrows, as references in a file's frontmatter. The site works out the reverse direction itself. When a note says `technologies: [pytorch]`, the PyTorch page lists that note automatically. You never edit the technology page to add it.
+You only ever write the arrows, as references in a file's frontmatter. The site works out the reverse direction itself. When a note says `technologies: [go]`, the Go page lists that note automatically. You never edit the technology page to add it.
 
 ### Where things live
 
@@ -108,10 +108,10 @@ public/cv.pdf               the CV download
 
 A file's **slug** is its filename without `.md`. It's used in the URL and in references:
 
-- `src/content/technologies/pytorch.md` → slug `pytorch` → page `/stack/pytorch`
-- `src/content/notes/mixed-precision.md` → slug `mixed-precision` → page `/knowledge/mixed-precision`
+- `src/content/technologies/go.md` → slug `go` → page `/stack/go`
+- `src/content/notes/go-concurrency-patterns.md` → slug `go-concurrency-patterns` → page `/knowledge/go-concurrency-patterns`
 
-Use lowercase and hyphens: `scikit-learn.md`, not `Scikit Learn.md`. Renaming a file changes its slug, so update anything that references the old one. The build will tell you if you miss any.
+Use lowercase and hyphens: `github-actions.md`, not `GitHub Actions.md`. Renaming a file changes its slug, so update anything that references the old one. The build will tell you if you miss any.
 
 ### Frontmatter
 
@@ -119,8 +119,8 @@ Every content file starts with a frontmatter block between `---` lines, followed
 
 ```md
 ---
-name: PyTorch
-status: using
+name: PostgreSQL
+status: learning
 ---
 Anything here is the body, written in normal Markdown.
 ```
@@ -138,61 +138,56 @@ Formats to remember:
 
 ### Add a technology to the tech stack
 
-1. Create `src/content/technologies/<slug>.md`, for example `fastapi.md`.
+1. Create `src/content/technologies/<slug>.md`, for example `nats.md`.
 2. Fill in the frontmatter:
 
 ```md
 ---
-name: FastAPI
-summary: Python web framework I use to put models behind HTTP APIs.
+name: NATS JetStream
+summary: Durable messaging I'm adding to InferenceFlow once the database-backed version works.
 status: learning
-started: 2026-11-01
+started: 2026-12-01
 links:
-  docs: https://fastapi.tiangolo.com/
-  repo: https://github.com/fastapi/fastapi
-language: [python]
-lifecycle: [build, deploy]
-domain: [backend, ml]
-kind: [framework]
-prerequisites: [python, sqlalchemy]
+  docs: https://docs.nats.io/nats-concepts/jetstream
+  repo: https://github.com/nats-io/nats-server
+language: [go]
+lifecycle: [build, operate]
+domain: [backend, devops]
+kind: [platform]
+prerequisites: [go, postgresql]
 roadmap:
-  - title: First endpoints
-    goal: Serve a typed JSON API locally with automatic docs.
+  - title: Streams and consumers
+    goal: Publish and consume durable messages locally with acknowledgements.
+    apply: "InferenceFlow P8: outbox, events, and reliable asynchronous messaging"
     learn:
-      - Path and query parameters, request bodies with Pydantic models
-      - Dependency injection with Depends
+      - Streams, subjects and retention
+      - Push versus pull consumers, ack policies
     practice:
-      - Build a health check and a CRUD endpoint for one table
+      - Run nats-server in Docker and consume from a Go worker
     doneWhen:
-      - "I can explain what Depends does without looking it up"
-    notes: [fastapi-first-endpoints]   # note slugs that must exist
-  - title: Talking to the database
-    goal: One SQLAlchemy session per request, committed or rolled back correctly.
-    learn: []
-    practice: []
-    doneWhen: []
-    notes: []
+      - "I can explain what happens to an unacked message"
+    notes: [nats-streams-and-consumers]   # note slugs that must exist
 resources:
-  - title: FastAPI tutorial
-    url: https://fastapi.tiangolo.com/tutorial/
-    kind: tutorial
+  - title: JetStream docs
+    url: https://docs.nats.io/nats-concepts/jetstream
+    kind: docs
 ---
 Optional body: why I'm learning it, how it fits with the rest of the stack,
-how long each stage should take. It appears above the roadmap on /stack/fastapi.
+how long each stage should take. It appears above the roadmap on /stack/nats.
 ```
 
-3. Run `npm run dev` and open `/stack/fastapi`.
+3. Run `npm run dev` and open `/stack/nats`.
 
 **Fields:**
 
 | Field | Required | What to put |
 |---|---|---|
-| `name` | yes | Display name, cased as the project writes it (`PyTorch`, `scikit-learn`) |
+| `name` | yes | Display name, cased as the project writes it (`PostgreSQL`, `golangci-lint`) |
 | `summary` | yes | One line, shown on the card in the grid |
 | `status` | yes | `learning` (actively picking it up), `using` (in real work or projects), `comfortable` (could teach it). This is the only proficiency signal on the site. |
 | `started` | yes | Roughly when I started with it |
 | `links.docs` / `links.repo` | no | Official docs and source repo |
-| `language` | yes, can be `[]` | Slugs of the **language technologies** it's used with. FastAPI → `[python]`, React → `[typescript, javascript]`. Must be `[]` if this technology is itself a language. |
+| `language` | yes, can be `[]` | Slugs of the **language technologies** it's used with. chi → `[go]`, React → `[typescript, javascript]`. Must be `[]` if this technology is itself a language. |
 | `lifecycle` | yes | Where it fits: `design`, `build`, `test`, `deploy`, `operate`. Pick all that apply. |
 | `domain` | yes | `frontend`, `backend`, `data`, `ml`, `devops` |
 | `kind` | yes | `language`, `framework`, `library`, `tool`, `platform` |
@@ -206,46 +201,47 @@ how long each stage should take. It appears above the roadmap on /stack/fastapi.
 |---|---|
 | `title` | Short stage name, sentence case |
 | `goal` | One sentence: what I can do once the stage is done |
+| `apply` | Optional: where I put it into practice, for example an InferenceFlow phase. Shown under the goal. |
 | `learn` | Concepts to understand |
 | `practice` | Concrete exercises |
 | `doneWhen` | Checkable outcomes, shown as a checklist |
 | `notes` | Note slugs for this stage, in reading order |
 
-A note listed in a stage gets a "Part of the FastAPI roadmap, stage 1" banner and previous and next links, so the notes read as a course. Notes that mention a technology without being in a stage still appear under "More notes".
+A note listed in a stage gets a "Part of the Go roadmap, stage 1" banner and previous and next links, so the notes read as a course. Notes that mention a technology without being in a stage still appear under "More notes".
 
 YAML tip: wrap any text containing `: ` (colon then space) in double quotes, as in the `doneWhen` line above. Otherwise YAML reads it as a nested key and the build fails.
 
 **What happens automatically:**
 - A card appears on `/stack`, and the filter chips pick up its tags.
-- `/stack/fastapi` gets built, listing every note, project and idea that references `fastapi`.
+- `/stack/nats` gets built, listing every note, project and idea that references `nats`.
 - If it's a language, its page also lists every technology used with it.
 
 If a tag you want isn't allowed yet, see [Add a new tag](#add-a-new-tag-topic-or-filter-value).
 
 ### Add a programming language
 
-Languages are technologies too, not tags. So Python gets its own page and lists everything I use with it.
+Languages are technologies too, not tags. So Go has its own page (`src/content/technologies/go.md`) and lists everything I use with it. To add another, for example Rust:
 
-1. Create `src/content/technologies/python.md` with `kind: [language]` and `language: []`:
+1. Create `src/content/technologies/rust.md` with `kind: [language]` and `language: []`:
 
 ```md
 ---
-name: Python
-summary: My main language for ML, data work and tooling.
-status: comfortable
-started: 2019-06-01
+name: Rust
+summary: Systems language I want to compare with Go for CPU-bound services.
+status: learning
+started: 2027-01-01
 links:
-  docs: https://docs.python.org/3/
+  docs: https://doc.rust-lang.org/book/
 language: []
-lifecycle: [build, test]
-domain: [ml, data, backend]
+lifecycle: [build]
+domain: [backend]
 kind: [language]
 ---
 ```
 
-2. Reference it from other technologies: `language: [python]`.
+2. Reference it from other technologies: `language: [rust]`.
 
-The build checks that anything listed under `language` really is a language. If you write `language: [pytorch]`, the build fails.
+The build checks that anything listed under `language` really is a language. If you write `language: [docker]`, the build fails.
 
 ### Write a note in the knowledge base
 
@@ -255,10 +251,10 @@ Notes are my write-ups and discussions: what I learned, how something works, got
 
 ````md
 ---
-title: Mixed precision training in PyTorch
-summary: What autocast and GradScaler actually do, and when they bite.
-technologies: [pytorch, python]
-topics: [performance, training]
+title: Bounded fan-out with errgroup
+summary: Running at most N calls at once, and cancelling the rest when one fails.
+technologies: [go]
+topics: [performance, best-practices]
 updated: 2026-11-20
 ---
 
@@ -266,9 +262,9 @@ updated: 2026-11-20
 
 Normal Markdown from here: headings, lists, links, tables, images and code blocks.
 
-```python
-with torch.autocast("cuda", dtype=torch.float16):
-    loss = model(x)
+```go
+g, ctx := errgroup.WithContext(ctx)
+g.SetLimit(8)
 ```
 ````
 
@@ -286,7 +282,7 @@ with torch.autocast("cuda", dtype=torch.float16):
 **Writing tips:**
 - Start body headings at `##`. The page already uses the title as its `#` heading.
 - Don't add lifecycle, domain or kind tags to a note: it inherits them from its technologies, so filtering `/knowledge` by "ML" finds notes about ML technologies.
-- Images: put them in `src/assets/notes/<slug>/` and reference them with a relative path, `![Loss curve](../../assets/notes/mixed-precision/loss.png)`. Astro optimises them at build time.
+- Images: put them in `src/assets/notes/<slug>/` and reference them with a relative path, `![Worker pool diagram](../../assets/notes/bounded-fan-out/pool.png)`. Astro optimises them at build time.
 - Search covers the whole body. A note doesn't need keyword stuffing to be findable.
 
 ### Add a project
@@ -295,13 +291,13 @@ with torch.autocast("cuda", dtype=torch.float16):
 
 ```md
 ---
-title: Image classifier service
-summary: A small model behind an HTTP API, packaged as a container.
+title: Rate limiter service
+summary: A small Go service that enforces per-tenant quotas, backed by PostgreSQL.
 status: building
-stack: [pytorch, fastapi, docker, python]
-repo: https://github.com/codebykarthick/image-classifier-service
+stack: [go, postgresql, docker]
+repo: https://github.com/codebykarthick/rate-limiter
 demo: https://example.com
-started: 2026-10-01
+started: 2027-01-10
 ---
 
 What it does, why I built it, how it's put together, what I'd do differently.
@@ -320,10 +316,10 @@ Ideas are things I might build. They're short; a summary is often enough.
 
 ```md
 ---
-title: Edge model benchmarking kit
-summary: Compare quantised models on real phones, not just on paper.
+title: Job queue on plain PostgreSQL
+summary: Background jobs without a broker, using SELECT ... FOR UPDATE SKIP LOCKED.
 status: exploring
-technologies: [pytorch]
+technologies: [go, postgresql]
 ---
 ```
 
@@ -482,7 +478,7 @@ Rule: scenes are original. No real landmarks, logos, or names from games or film
 ```sh
 npm run build                 # optional but catches problems before CI does
 git add -A
-git commit -m "Add FastAPI to the stack"
+git commit -m "Add NATS to the stack"
 git push
 ```
 
@@ -551,8 +547,8 @@ The repo includes `CLAUDE.md` (project rules) and two skills that Claude Code us
 - **cyberpunk-scenes**: building or changing background scenes
 
 Example requests:
-- "Add FastAPI to the stack. I'm learning it, it's a Python backend framework I use for ML APIs."
-- "Write up a knowledge base note from these bullet points about PyTorch DataLoader workers: …"
+- "Add NATS JetStream to the stack. I'm learning it for InferenceFlow's messaging phase."
+- "Write up a knowledge base note from these bullet points about Go context cancellation: …"
 - "Here's my CV, fill in the About page experience and education from it."
 - "Mark the edge benchmarking idea as became-project and create the project page for it."
 - "Add a `security` domain tag."

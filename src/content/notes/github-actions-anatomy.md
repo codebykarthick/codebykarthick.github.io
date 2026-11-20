@@ -102,11 +102,11 @@ This is the part that took me longest to get right:
 - **Between steps in the same job**: they share a filesystem and working directory, so files just work. Environment variables don't carry over automatically. To set one for later steps, append to `$GITHUB_ENV`: `echo "APP_ENV=ci" >> "$GITHUB_ENV"`.
 - **Step outputs**: append `name=value` to `$GITHUB_OUTPUT` in a step with an `id`, then read `steps.<id>.outputs.<name>`.
 - **Between jobs**: each job is a new machine. Small values go through job `outputs:` and `needs.<job>.outputs`. Files go through **artifacts** (`actions/upload-artifact@v7` and `actions/download-artifact`).
-- **Between runs**: the **cache** (`actions/cache@v6`, or a setup action's built-in cache) stores things like downloaded packages, keyed by a hash of the lockfile. A cache is an optimisation that may miss; an artifact is a deliverable you can rely on.
+- **Between runs**: the **cache** (`actions/cache@v6`, or a setup action's built-in cache) stores things like downloaded modules and compiled packages, keyed by a hash of `go.sum`; `actions/setup-go` does this for Go automatically. A cache is an optimisation that may miss; an artifact is a deliverable you can rely on.
 
 ## Runners
 
-GitHub-hosted runners (`ubuntu-latest`, `windows-latest`, `macos-latest`, plus arm64 variants such as `ubuntu-24.04-arm`) are fresh VMs for every job, with Docker, Python and common tools preinstalled. `ubuntu-latest` moves to a newer Ubuntu every so often; pin `ubuntu-24.04` (or whichever release is current) if the exact OS matters. Self-hosted runners exist, but they aren't something I need yet.
+GitHub-hosted runners (`ubuntu-latest`, `windows-latest`, `macos-latest`, plus arm64 variants such as `ubuntu-24.04-arm`) are fresh VMs for every job, with Docker, Git, Go and other common toolchains preinstalled (I still pin Go with `actions/setup-go` rather than rely on whichever version the image has). `ubuntu-latest` moves to a newer Ubuntu every so often; pin `ubuntu-24.04` (or whichever release is current) if the exact OS matters. Self-hosted runners exist, but they aren't something I need yet.
 
 ## Debugging
 
@@ -116,7 +116,7 @@ GitHub-hosted runners (`ubuntu-latest`, `windows-latest`, `macos-latest`, plus a
 
 ## Gotchas
 
-- **No `pipefail` by default.** A `run:` step with no `shell:` uses `bash -e {0}`, so `pytest | tee log.txt` succeeds even when pytest fails. Setting `shell: bash` explicitly, or `defaults: run: shell: bash` at the top, gives `bash --noprofile --norc -eo pipefail {0}`.
+- **No `pipefail` by default.** A `run:` step with no `shell:` uses `bash -e {0}`, so `go test ./... | tee log.txt` succeeds even when the tests fail, because the pipeline's status is `tee`'s. Setting `shell: bash` explicitly, or `defaults: run: shell: bash` at the top, gives `bash --noprofile --norc -eo pipefail {0}`.
 - **Expressions are text substitution.** `run: echo "${{ github.event.pull_request.title }}"` pastes the title into a shell script, which is a script-injection hole. Pass untrusted values through `env:` instead.
 - **Jobs don't share anything.** Installing dependencies in a `setup` job doesn't help a `test` job.
 - **Path and branch filters on required checks.** If a workflow is skipped by a `paths:` filter, a required status check can sit at "pending" forever.
@@ -127,7 +127,7 @@ GitHub-hosted runners (`ubuntu-latest`, `windows-latest`, `macos-latest`, plus a
 1. Two jobs in one workflow have no `needs`. When do they run, and can the second read a file the first wrote?
 2. How do I pass a value from one step to a later step, and from one job to another?
 3. What does `concurrency` with `cancel-in-progress: true` do on a busy pull request?
-4. Why can `pytest | tee out.txt` pass even though tests failed, and how do I fix it?
+4. Why can `go test ./... | tee out.txt` pass even though tests failed, and how do I fix it?
 5. Why is `${{ github.event.pull_request.title }}` inside `run:` dangerous?
 
 ## Further reading

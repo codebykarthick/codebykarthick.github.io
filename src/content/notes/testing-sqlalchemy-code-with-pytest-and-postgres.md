@@ -1,12 +1,12 @@
 ---
 title: Testing SQLAlchemy code with pytest and Postgres
 summary: Fast, isolated database tests against real PostgreSQL, using pytest fixtures, Alembic migrations and a rolled-back transaction per test with join_transaction_mode.
-technologies: [sqlalchemy, python, postgresql]
+technologies: [sqlalchemy, postgresql]
 topics: [testing, transactions]
 updated: 2026-11-20
 ---
 
-Database code is only worth testing against the database it will run on. These notes set up the inventory API project's test suite so that every test runs against real PostgreSQL 18, starts with empty tables, and cleans up after itself in milliseconds, without truncating or recreating anything.
+Database code is only worth testing against the database it will run on. These notes set up a test suite for the inventory example so that every test runs against real PostgreSQL 18, starts with empty tables, and cleans up after itself in milliseconds, without truncating or recreating anything.
 
 ## Why not SQLite?
 
@@ -31,7 +31,7 @@ export DATABASE_URL=postgresql+psycopg://inventory:inventory@localhost:5432/inve
 uv add --dev pytest
 ```
 
-In GitHub Actions, a `postgres:18` service container creates `inventory_test` itself and the workflow sets the same `DATABASE_URL`, then runs `uv run alembic upgrade head` before `uv run pytest`. The CI note covers that workflow.
+In GitHub Actions, a `postgres:18` service container creates `inventory_test` itself and the workflow sets the same `DATABASE_URL`, then runs `uv run alembic upgrade head` before `uv run pytest`. The GitHub Actions roadmap's service-container note shows the same pattern for a Go project.
 
 ## The pattern: one transaction per test, rolled back
 

@@ -26,13 +26,13 @@ An image is two things:
 
 Most Dockerfile instructions that change the filesystem (`RUN`, `COPY`, `ADD`) produce a new layer. When I build, Docker can reuse a layer from cache as long as the instruction and everything before it are unchanged. That is the whole basis of fast rebuilds, and why the *order* of instructions matters so much (see the Dockerfile note).
 
-Layers are content-addressed and shared. If ten images use `python:3.14-slim` as their base, its layers are stored once on disk and downloaded once.
+Layers are content-addressed and shared. If ten images use `golang:1.27` as their base, its layers are stored once on disk and downloaded once.
 
 Layers are also additive. Deleting a file in a later layer hides it but doesn't shrink the image, because the earlier layer still contains it. This is why `RUN apt-get install ... && rm -rf /var/lib/apt/lists/*` has to be a single `RUN`, and why secrets copied into an early layer stay recoverable even if a later layer deletes them.
 
 ```sh
-docker image history python:3.14-slim   # one line per layer, with sizes
-docker image inspect python:3.14-slim   # config: Env, Cmd, Entrypoint, Architecture
+docker image history golang:1.27   # one line per layer, with sizes
+docker image inspect golang:1.27   # config: Env, Cmd, Entrypoint, Architecture
 ```
 
 ## A container is an image plus a writable layer
@@ -40,11 +40,11 @@ docker image inspect python:3.14-slim   # config: Env, Cmd, Entrypoint, Architec
 When I `docker run` an image, Docker stacks a thin **writable layer** on top of the read-only layers and starts the configured process. Anything the process writes goes into that writable layer, which exists only as long as the container does.
 
 ```sh
-docker run --name scratch -it python:3.14-slim bash
+docker run --name play -it golang:1.27 bash
 # inside: echo hello > /tmp/note.txt; exit
-docker start -ai scratch      # the file is still there: same container
-docker rm scratch
-docker run --rm -it python:3.14-slim cat /tmp/note.txt   # gone: new container
+docker start -ai play         # the file is still there: same container
+docker rm play
+docker run --rm -it golang:1.27 cat /tmp/note.txt   # gone: new container
 ```
 
 This is the single most important idea for running databases: **data that must outlive the container belongs in a volume**, not in the writable layer.
@@ -53,7 +53,7 @@ This is the single most important idea for running databases: **data that must o
 
 `postgres:18` is a **tag**: a human-friendly, *mutable* pointer. The maintainers move it every time they publish a patch release. A **digest** such as `postgres@sha256:...` identifies exact image content and never changes.
 
-For local development, tags are fine. For production deploys and anything that needs to be reproducible, I pin the digest, or at least a specific tag such as `postgres:18.1`, and let a bot propose updates.
+For local development, tags are fine. For production deploys and anything that needs to be reproducible, I pin the digest, or at least a specific tag such as `postgres:18.7`, and let a bot propose updates.
 
 Images are also built per **platform**. Most official images are multi-platform, and Docker pulls the variant that matches the host. My Mac is Apple silicon (`linux/arm64`), while most CI runners and cloud servers are `linux/amd64`. An image I build locally and push from my Mac will not run on an amd64 server unless I build for that platform, for example with `docker buildx build --platform linux/amd64,linux/arm64`.
 
@@ -61,7 +61,7 @@ Images are also built per **platform**. Most official images are multi-platform,
 
 ```sh
 # Run
-docker run --rm -it python:3.14-slim python          # throwaway interactive container
+docker run --rm -it golang:1.27 bash               # throwaway interactive container
 docker run -d --name db -e POSTGRES_PASSWORD=dev \
   -p 127.0.0.1:5432:5432 postgres:18                 # background service
 
@@ -83,11 +83,11 @@ docker image prune         # dangling images
 docker system prune        # stopped containers, unused networks, dangling images, build cache
 ```
 
-`docker exec` is my main debugging tool: it starts an extra process inside an existing container, so I can poke around without restarting it.
+`docker exec` is my main debugging tool: it starts an extra process inside an existing container, so I can poke around without restarting it. It needs the program it runs to exist in the image, though: the distroless images I use for Go services have no shell, so `docker exec -it api sh` fails by design (the Dockerfile note covers debugging those).
 
 ## Gotchas
 
-- **Treating containers as pets.** If I `docker exec` in and `pip install` something, it's gone the next time the container is recreated. Changes belong in the Dockerfile.
+- **Treating containers as pets.** If I `docker exec` in and `apt-get install` something, it's gone the next time the container is recreated. Changes belong in the Dockerfile.
 - **`latest` isn't "newest".** It's just the default tag name, and it only means "newest" if the publisher keeps it that way. Don't rely on it.
 - **Architecture mismatches.** `exec format error` almost always means an arm64 image on an amd64 host or the other way round.
 - **Disk creep.** Old images and build cache pile up quickly. `docker system df` before assuming the machine is out of space for some other reason.

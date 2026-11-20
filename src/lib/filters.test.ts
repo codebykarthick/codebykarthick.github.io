@@ -39,30 +39,30 @@ suite("toggle", () => {
 });
 
 const docker: FilterItem = { id: "docker", text: "Docker containers", values: { domain: ["devops", "backend"], kind: ["tool", "platform"], language: [] } };
-const sqla: FilterItem = { id: "sqlalchemy", text: "SQLAlchemy ORM", values: { domain: ["backend", "data"], kind: ["library"], language: ["python"] } };
+const pgx: FilterItem = { id: "pgx", text: "pgx PostgreSQL driver", values: { domain: ["backend", "data"], kind: ["library"], language: ["go"] } };
 
 suite("matches", () => {
   it("is OR within a group", () => {
     const s = parse("?domain=devops,data", KEYS);
     expect(matches(docker, s)).toBe(true);
-    expect(matches(sqla, s)).toBe(true);
+    expect(matches(pgx, s)).toBe(true);
   });
   it("is AND across groups", () => {
     const s = parse("?domain=backend&kind=library", KEYS);
     expect(matches(docker, s)).toBe(false);
-    expect(matches(sqla, s)).toBe(true);
+    expect(matches(pgx, s)).toBe(true);
   });
   it("matches text case-insensitively", () => {
     expect(matches(docker, parse("?q=DOCK", KEYS))).toBe(true);
-    expect(matches(sqla, parse("?q=dock", KEYS))).toBe(false);
+    expect(matches(pgx, parse("?q=dock", KEYS))).toBe(false);
   });
   it("uses full-text hits instead of text when given", () => {
     const s = parse("?q=anything", KEYS);
-    expect(matches(sqla, s, new Set(["sqlalchemy"]))).toBe(true);
-    expect(matches(docker, s, new Set(["sqlalchemy"]))).toBe(false);
+    expect(matches(pgx, s, new Set(["pgx"]))).toBe(true);
+    expect(matches(docker, s, new Set(["pgx"]))).toBe(false);
   });
   it("treats an empty group value list as unfiltered but a missing item value as no match", () => {
-    expect(matches(docker, parse("?language=python", KEYS))).toBe(false);
+    expect(matches(docker, parse("?language=go", KEYS))).toBe(false);
     expect(matches(docker, { q: "", groups: { language: [] } })).toBe(true);
   });
 });

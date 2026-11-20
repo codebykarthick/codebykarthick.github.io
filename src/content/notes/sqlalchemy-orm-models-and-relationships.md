@@ -1,12 +1,12 @@
 ---
 title: SQLAlchemy ORM models and relationships
 summary: Declaring the inventory models with DeclarativeBase, Mapped and mapped_column, linking them with relationship(), and understanding object states and cascades.
-technologies: [sqlalchemy, python, postgresql]
+technologies: [sqlalchemy, postgresql]
 topics: [data-modelling, fundamentals]
 updated: 2026-11-20
 ---
 
-The ORM maps Python classes to tables. In SQLAlchemy 2.x the mapping is driven by type annotations: `Mapped[int]` tells SQLAlchemy (and my type checker) what the attribute holds, and `mapped_column()` adds database details. The goal for the inventory API project is models that produce exactly the schema I would write by hand in SQL.
+The ORM maps Python classes to tables. In SQLAlchemy 2.x the mapping is driven by type annotations: `Mapped[int]` tells SQLAlchemy (and my type checker) what the attribute holds, and `mapped_column()` adds database details. The goal for the inventory example is models that produce exactly the schema I would write by hand in SQL.
 
 ## The complete models
 

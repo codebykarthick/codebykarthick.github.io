@@ -45,6 +45,7 @@ reference/poc-index.html   original three.js r128 proof of concept, not built; k
 - Quote YAML values containing `: `.
 - Load technologies, notes, projects and ideas through `loadSite()` in `src/lib/content.ts`, not `getCollection` directly, so the integrity check runs. (Experience and education have no references and are read directly on /about.)
 - Use the `add-content` skill when adding content or tags.
+- Only add the content Sri asks for. Don't invent projects, ideas, technologies or capstones. Sri's capstone is InferenceFlow (Go, https://github.com/codebykarthick/system-in-go); the Go roadmap is a companion to it and each stage's `apply` names the InferenceFlow phase. Never invent InferenceFlow details beyond its README and Roadmap.md.
 
 ### Design
 - Colours, fonts and spacing come from `src/styles/tokens.css` custom properties. Don't hard-code hex values in components.

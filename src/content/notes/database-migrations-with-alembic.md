@@ -1,12 +1,12 @@
 ---
 title: Database migrations with Alembic
-summary: Setting up Alembic for the inventory API, reading the URL from the environment, autogenerating and reviewing migrations, naming conventions, and data migrations.
-technologies: [sqlalchemy, python, postgresql]
+summary: Setting up Alembic for a small inventory app, reading the URL from the environment, autogenerating and reviewing migrations, naming conventions, and data migrations.
+technologies: [sqlalchemy, postgresql]
 topics: [migrations, best-practices]
 updated: 2026-11-20
 ---
 
-`Base.metadata.create_all()` creates missing tables, but it never changes an existing one. Once the inventory API project has real data, every schema change (a new column, a renamed column, an index) has to be applied to a live database in a controlled, repeatable way. Alembic does this with **migration scripts**: small Python files, each with an `upgrade()` and a `downgrade()`, chained together by revision ids and kept in version control next to the code.
+`Base.metadata.create_all()` creates missing tables, but it never changes an existing one. Once an app has real data, every schema change (a new column, a renamed column, an index) has to be applied to a live database in a controlled, repeatable way. Alembic does this with **migration scripts**: small Python files, each with an `upgrade()` and a `downgrade()`, chained together by revision ids and kept in version control next to the code.
 
 Alembic records the current revision in a one-row table, `alembic_version`, in the database itself.
 

@@ -1,14 +1,14 @@
 ---
 title: Querying with select() in SQLAlchemy 2.x
 summary: Filtering, joining, aggregating and bulk-updating inventory data with select(), plus lazy loading, the N+1 problem and how eager loading options fix it.
-technologies: [sqlalchemy, python, postgresql]
+technologies: [sqlalchemy, postgresql]
 topics: [querying, performance]
 updated: 2026-11-20
 ---
 
 In SQLAlchemy 2.x, Core and the ORM share one query language: build a statement with `select()`, then run it with `session.scalars()` or `session.execute()`. The old `session.query(Item).filter(...)` API is legacy; most blog posts still use it, so I translate them as I read rather than copying them.
 
-All examples assume the `Warehouse` and `Item` models from the inventory API project and an open `session`.
+All examples assume the `Warehouse` and `Item` models from the inventory example in the models note and an open `session`.
 
 ## Two ways to run a select
 

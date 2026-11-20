@@ -1,7 +1,7 @@
 ---
 title: SQLAlchemy engine, connection and session
-summary: What the engine, connection and session each do in SQLAlchemy 2.1, how transactions begin and end, and the session-per-request pattern for the inventory API.
-technologies: [sqlalchemy, python, postgresql]
+summary: What the engine, connection and session each do in SQLAlchemy 2.1, how transactions begin and end, and the session-per-request pattern for the inventory example.
+technologies: [sqlalchemy, postgresql]
 topics: [fundamentals, setup, transactions]
 updated: 2026-11-20
 ---

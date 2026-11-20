@@ -1,12 +1,12 @@
 ---
 title: Building and pushing Docker images with GitHub Actions
-summary: Build the image on every pull request and publish tagged images to GitHub Container Registry from main and release tags, using metadata-action, Buildx and the GitHub Actions cache.
-technologies: [github-actions, docker]
+summary: Build a Go service's image on every pull request and publish multi-platform, tagged images to GitHub Container Registry from main and release tags, with metadata-action, Buildx and the Actions cache.
+technologies: [github-actions, docker, go]
 topics: [ci-cd, images, deployment]
 updated: 2026-11-20
 ---
 
-The goal for the inventory API: every pull request proves the image still builds, every merge to `main` publishes an image tagged with its commit, and pushing a tag like `v0.1.0` publishes a release. The registry is **GitHub Container Registry (GHCR)** at `ghcr.io`, because it authenticates with the workflow's own `GITHUB_TOKEN` and needs no extra secrets.
+The plan for a Go service's image: every pull request proves it still builds and starts, every merge to `main` publishes an image tagged with its commit, and pushing a tag like `v0.1.0` publishes a release. InferenceFlow's P13 asks for a build job and version-pinned images; publishing to **GitHub Container Registry (GHCR)** at `ghcr.io` is my choice, because it authenticates with the workflow's own `GITHUB_TOKEN` and needs no extra secrets. The image is the distroless, cross-compiled one from the Dockerfile note.
 
 ## The workflow
 
@@ -36,6 +36,8 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
@@ -61,31 +63,43 @@ jobs:
             type=sha
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
+          target: runtime
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Record the digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: echo "Pushed digest $DIGEST" >> "$GITHUB_STEP_SUMMARY"
 ```
+
+actionlint is clean on it. I can't run GitHub's runners locally, so the build itself I checked with `docker build` against a scratch module.
 
 ## Walking through it
 
 ### Permissions
 
-The workflow defaults to `contents: read`, and only this job is raised to `packages: write`, which is what lets `GITHUB_TOKEN` push to GHCR. Job-level `permissions` *replaces* the workflow-level block rather than adding to it, so `contents: read` has to be repeated or checkout fails.
+The workflow defaults to `contents: read`, and only this job is raised to `packages: write`, which lets `GITHUB_TOKEN` push to GHCR. Job-level `permissions` *replaces* the workflow block rather than adding to it, so `contents: read` has to be repeated or checkout fails.
 
-On pull requests from forks, `GITHUB_TOKEN` is read-only whatever the workflow asks for. That's one reason the login and push are skipped on `pull_request`: the build still runs and proves the Dockerfile works, but nothing is published from untrusted code.
+On pull requests from forks, `GITHUB_TOKEN` is read-only whatever the workflow asks for. That's one reason login and push are skipped on `pull_request`: the build still proves the Dockerfile works, but nothing is published from untrusted code.
 
 ### Buildx
 
-`docker/setup-buildx-action` creates a BuildKit builder using the `docker-container` driver. The default `docker` driver can only export cache to backends like `gha`, or build multi-platform images, when the Docker Engine uses the containerd image store. The `docker-container` driver supports both regardless, so this step makes the rest of the workflow work on any runner.
+`docker/setup-buildx-action` creates a BuildKit builder with the `docker-container` driver. The default `docker` driver can neither export cache to `gha` nor build multi-platform images unless the engine uses the containerd image store. I hit exactly this locally: a two-platform build failed with "Multi-platform build is not supported for the docker driver".
 
 ### Tags from metadata-action
 
-Working out tags by hand in shell is fiddly and error-prone. `docker/metadata-action` turns the event into a list of tags plus standard OCI labels. With the configuration above:
+`docker/metadata-action` turns the event into tags plus standard OCI labels:
 
 | Event | Tags produced |
 | --- | --- |
@@ -93,70 +107,92 @@ Working out tags by hand in shell is fiddly and error-prone. `docker/metadata-ac
 | Push to `main` | `main`, `sha-<short>` |
 | Push tag `v0.1.0` | `0.1.0`, `0.1`, `sha-<short>`, `latest` |
 
-`latest` comes from the action's default `flavor: latest=auto`, which adds it for semver tags. So `latest` means "the newest release", not "whatever was last merged". If I wanted `latest` to follow `main` instead, I'd add `type=raw,value=latest,enable={{is_default_branch}}`.
+`latest` comes from the default `flavor: latest=auto`, which adds it for semver tags, so it means "newest release", not "last merge". The `sha-` tag is unique and maps straight back to a commit. The `version` output (`0.1.0`, `main` or `pr-12`) goes into the Dockerfile's `VERSION` argument and is linked into the binary with `-X main.version`, so a running container can report what it is.
 
-The `sha-` tag is the one I'd deploy: it's unique, and maps straight back to a commit. Branch tags like `main` move with every merge.
+The labels include `org.opencontainers.image.source`, which GHCR uses to link the package to the repository. metadata-action also lowercases the image name, since registry names must be lowercase and `github.repository` keeps the owner's capitalisation.
 
-The labels output includes `org.opencontainers.image.source` pointing at the repository, which GHCR uses to link the package to the repository page. metadata-action also lowercases image names, which matters because registry names must be lowercase and `github.repository` keeps the owner's capitalisation.
+### Multi-platform without emulation
 
-### Build, push and cache
+`platforms: linux/amd64,linux/arm64` produces one image index that runs on Intel servers and on Apple silicon or Arm machines. For most languages that means QEMU emulation and slow builds. Because the Dockerfile's build stage uses `FROM --platform=$BUILDPLATFORM` and sets `GOOS`/`GOARCH` from `TARGETOS`/`TARGETARCH`, Go cross-compiles both binaries natively on the amd64 runner; only the tiny distroless runtime stage is per-platform. No `setup-qemu-action` is needed. Locally, an amd64 image built on my arm64 Mac in seven seconds.
 
-`docker/build-push-action` runs `docker buildx build`:
+### Cache: layers yes, cache mounts no
 
-- **`context: .`** builds from the checked-out files. Without it, the action builds from the Git context (a fresh clone of the commit by BuildKit), which ignores anything earlier steps generated.
-- **`push`** is an expression, so the same step builds-only on pull requests and pushes everywhere else.
-- **`cache-from: type=gha` / `cache-to: type=gha,mode=max`** store BuildKit's layer cache in the GitHub Actions cache. Runners are fresh VMs with an empty Docker cache, so without this every build starts from nothing. `mode=max` caches the layers of *every* stage, including the builder stage where dependencies are installed. The default `mode=min` only caches layers in the final image, which for a multi-stage build misses most of the expensive work.
+- **`cache-from` / `cache-to: type=gha`** store BuildKit's layer cache in the GitHub Actions cache. Runners start with an empty Docker cache, so without this every build starts from nothing.
+- **`mode=max`** caches the layers of every stage, including the builder. The default `mode=min` only caches layers in the final image, which for a multi-stage build misses all the expensive work.
+- **Cache mounts aren't exported.** Docker's documentation says BuildKit doesn't preserve cache mounts in the GitHub Actions cache by default. The Dockerfile's `/go/pkg/mod` and `/root/.cache/go-build` mounts are therefore empty on every runner. If no source changed, every layer comes from the cache and nothing runs. If code changed, the `go mod download` layer is a cache hit but nearly empty (the modules went into the mount), so `go build` downloads and compiles every dependency again. If that becomes slow, `reproducible-containers/buildkit-cache-dance` copies the mount contents in and out of the Actions cache.
 
-Combined with a Dockerfile that installs dependencies before copying the source, a code-only change rebuilds in well under a minute.
+### The digest
 
-## Optional extras
+`steps.build.outputs.digest` is the immutable content address of what was pushed. Writing it to `$GITHUB_STEP_SUMMARY` puts it on the run page. It goes through `env:`, not straight into the script, out of habit (see the security note).
 
-**Smoke-test before pushing.** Build once with `load: true` to put the image in the runner's Docker, run a quick check, then push in a second build step. The second build is nearly instant because every layer is cached:
+## Smoke-testing the image
+
+A successful build doesn't prove the binary starts. A second job can build for the runner's platform only, load it into the local Docker and hit the health endpoint:
 
 ```yaml
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v4
       - uses: docker/build-push-action@v7
         with:
           context: .
+          target: runtime
           load: true
-          tags: inventory-api:test
+          tags: api:smoke
           cache-from: type=gha
-      - run: docker run --rm inventory-api:test python -c "import inventory_api"
+      - name: Start the container and wait for /healthz
+        run: |
+          docker run -d --name smoke -p 127.0.0.1:8080:8080 api:smoke
+          for _ in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:8080/healthz && exit 0
+            sleep 1
+          done
+          docker logs smoke
+          exit 1
 ```
 
-**Multi-platform images.** Adding `platforms: linux/amd64,linux/arm64` (plus `docker/setup-qemu-action@v4`) builds an image that also runs on Apple silicon and Arm servers. Emulated arm64 builds are slow, especially compiling wheels; building each platform on a native runner and merging them is faster, at the cost of a more complex workflow.
+`load: true` only works for a single platform, which is why this is a separate build. A real service that refuses to start without a database would need a Postgres service container here too.
 
-**Attestations.** build-push-action attaches a provenance attestation by default: `mode=max` for public repositories and `mode=min` for private ones. Setting `provenance: mode=max` and `sbom: true` explicitly records how the image was built and what's in it.
+## Attestations
+
+build-push-action attaches a provenance attestation by default: `mode=max` for public repositories and `mode=min` for private ones. Setting `provenance: mode=max` and `sbom: true` explicitly records how the image was built and what's in it. For a Go binary, `go version -m` lists the exact module versions linked in. I checked that it still works on the stripped, trimmed binary from the Dockerfile note, and `govulncheck -mode=binary` can scan the same file.
 
 ## Using the image
 
 ```sh
-docker pull ghcr.io/<owner>/inventory-api:sha-1a2b3c4
+docker pull ghcr.io/<owner>/<repo>:sha-1a2b3c4
+docker pull ghcr.io/<owner>/<repo>@sha256:<digest>   # what I'd deploy
 ```
 
-A newly created GHCR package is **private** by default. To pull it from elsewhere, I either authenticate (`docker login ghcr.io` with a personal access token that has `read:packages`) or make the package public in its settings.
+A new GHCR package is **private** by default. Pulling it elsewhere needs `docker login ghcr.io` with a token that has `read:packages`, or making the package public.
 
 ## Gotchas
 
-- **Forgetting `packages: write`.** The push fails with a `denied` or `403 Forbidden` error from `ghcr.io`.
+- **Forgetting `packages: write`.** The push fails with `denied` or `403 Forbidden` from `ghcr.io`.
 - **Job-level permissions without `contents: read`.** Checkout fails, because the job block replaced the workflow default.
-- **No Buildx step.** On a runner without the containerd image store, `cache-to: type=gha` fails with "Cache export is not supported for the docker driver".
-- **Expecting the cache to be permanent.** The Actions cache has a per-repository size limit and evicts old entries. A cold build now and then is normal.
-- **Deploying `latest` or `main`.** They move. Deploy an immutable `sha-` tag or, better, the image digest from the build step's `digest` output.
-- **Uppercase image names when tagging by hand.** `ghcr.io/CodeByKarthick/...` is rejected; metadata-action handles this, a hand-written `tags:` line doesn't.
+- **No Buildx step.** `cache-to: type=gha` and multi-platform builds fail on the default driver.
+- **Expecting cache mounts to persist in CI.** They don't, without extra tooling.
+- **Deploying `latest` or `main`.** They move. Deploy a `sha-` tag or, better, the digest.
+- **`load: true` with several platforms.** The local image store can't hold a multi-platform index without the containerd store; build one platform for tests.
 
 ## Check yourself
 
-1. Why is `packages: write` set on the job rather than the whole workflow, and why does `contents: read` appear twice?
-2. Which tags does a push of `v1.2.3` produce, and which of them would I deploy?
-3. Why does the workflow build but not push on pull requests?
-4. What does `mode=max` cache that the default doesn't, and why does it matter for a multi-stage Dockerfile?
-5. Why is Buildx needed for the `gha` cache?
+1. Why is `packages: write` set on the job rather than the workflow, and why does `contents: read` appear twice?
+2. Which tags does a push of `v1.2.3` produce, and which would I deploy?
+3. How does this build produce an arm64 image without QEMU?
+4. What does `mode=max` cache that the default doesn't, and what does neither mode cache?
+5. Why does the smoke test build separately with `load: true`?
 
 ## Further reading
 
 - [Docker docs: GitHub Actions](https://docs.docker.com/build/ci/github-actions/)
 - [Docker docs: cache management with GitHub Actions](https://docs.docker.com/build/ci/github-actions/cache/)
 - [Docker docs: manage tags and labels](https://docs.docker.com/build/ci/github-actions/manage-tags-labels/)
+- [Docker docs: multi-platform images](https://docs.docker.com/build/building/multi-platform/)
 - [docker/metadata-action](https://github.com/docker/metadata-action)
 - [GitHub Docs: working with the container registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
-- [GitHub Docs: publishing Docker images](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images)

@@ -34,7 +34,8 @@ jobs:
 ```yaml
 steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-  - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+  - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+  - uses: golangci/golangci-lint-action@d583c34f0599d37dbac4a198b9c83201be380893 # v9.3.0
 ```
 
 A full 40-character SHA is immutable. The trailing comment keeps it readable, and Dependabot understands this format: it bumps the SHA and the comment together.
@@ -47,15 +48,23 @@ updates:
     directory: /
     schedule:
       interval: weekly
-  - package-ecosystem: uv
+    cooldown:
+      default-days: 7
+  - package-ecosystem: gomod
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
 ```
+
+`gomod` covers `go.mod` and `go.sum`, and `docker` covers the `FROM` lines in the Dockerfile. `cooldown` waits until a release is a week old before proposing it, so a compromised version that is caught and pulled within days never reaches a pull request. Dependabot can't see tool versions inside `run:` lines, such as `go run golang.org/x/vuln/cmd/govulncheck@v1.10.0`; recording tools with `go get -tool` puts them in `go.mod`, where it can.
 
 Repository and organisation admins can turn on an Actions policy that fails any workflow using an action not pinned to a full SHA. GitHub has also recently added **workflow dependency lockfiles** (`.github/workflows/actions.lock`, generated with the `gh actions-lock` CLI extension), which pin transitive action dependencies too. They're new enough that I'm treating SHA pinning as the baseline and lockfiles as something to try next.
 
@@ -89,7 +98,7 @@ If I ever need `pull_request_target`, it must never build, test or install anyth
 - Secrets are masked in logs, but transformed copies (base64-encoded, split into pieces) aren't. Never echo them.
 - `actions/checkout` keeps the token available to later git commands by default. If nothing later in the job needs to push, set `persist-credentials: false`.
 - **Environments** (`environment: production` on a job) add protection rules, such as required reviewers and an allowed-branches list, and hold secrets that only jobs targeting that environment can read. Deploy jobs belong in an environment.
-- **OIDC** replaces long-lived cloud keys. With `permissions: id-token: write`, the job can request a short-lived signed token, and the cloud provider (AWS, Azure, GCP) exchanges it for temporary credentials. The trust policy on the cloud side restricts *which* workflows qualify by matching the token's `sub` claim, for example `repo:<owner>/inventory-api:environment:production`. There's nothing stored in GitHub to leak.
+- **OIDC** replaces long-lived cloud keys. With `permissions: id-token: write`, the job can request a short-lived signed token, and the cloud provider (AWS, Azure, GCP) exchanges it for temporary credentials. The trust policy on the cloud side restricts *which* workflows qualify by matching the token's `sub` claim, for example `repo:<owner>/<repo>:environment:production`. There's nothing stored in GitHub to leak.
 
 ## Reuse: composite actions versus reusable workflows
 
@@ -98,30 +107,32 @@ Once there are two workflows, the same setup steps appear in both. GitHub has tw
 ### Composite action: share *steps*
 
 ```yaml
-# .github/actions/setup-project/action.yml
-name: Set up Python project
-description: Install uv, the requested Python and the locked dependencies
+# .github/actions/setup-go-project/action.yml
+name: Set up Go project
+description: Install the requested Go version and download modules
 inputs:
-  python-version:
-    description: Python version to use
-    default: "3.14"
+  go-version:
+    description: Go version to install
+    default: "1.27.x"
 runs:
   using: composite
   steps:
-    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+    - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
       with:
-        python-version: ${{ inputs.python-version }}
-    - run: uv sync --locked
+        go-version: ${{ inputs.go-version }}
+    - run: go mod download
       shell: bash
 ```
 
 ```yaml
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup-project
         with:
-          python-version: "3.14"
-      - run: uv run pytest
+          persist-credentials: false
+      - uses: ./.github/actions/setup-go-project
+        with:
+          go-version: "1.27.x"
+      - run: go test ./...
 ```
 
 A local composite action needs the checkout first, since it's a file in the repository. Every `run` step in a composite action must declare `shell:`.
@@ -129,13 +140,13 @@ A local composite action needs the checkout first, since it's a file in the repo
 ### Reusable workflow: share *jobs*
 
 ```yaml
-# .github/workflows/python-ci.yml  (in a shared repository)
+# .github/workflows/go-ci.yml  (in a shared repository)
 on:
   workflow_call:
     inputs:
-      python-version:
+      go-version:
         type: string
-        default: "3.14"
+        default: "1.27.x"
 
 permissions:
   contents: read
@@ -145,21 +156,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          python-version: ${{ inputs.python-version }}
-      - run: uv sync --locked
-      - run: uv run pytest
+          persist-credentials: false
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: ${{ inputs.go-version }}
+      - run: go vet ./...
+      - run: go test -race ./...
 ```
 
 ```yaml
 # a caller, in any repository that may access the shared one
 jobs:
   ci:
-    uses: <owner>/workflows/.github/workflows/python-ci.yml@<commit-sha>
+    uses: <owner>/workflows/.github/workflows/go-ci.yml@<commit-sha>
     with:
-      python-version: "3.14"
+      go-version: "1.27.x"
 ```
+
 
 | | Composite action | Reusable workflow |
 | --- | --- | --- |
@@ -174,9 +188,11 @@ The token in a called workflow can have the same or *fewer* permissions than the
 ## Auditing
 
 ```sh
-actionlint              # syntax, expressions, unknown inputs
-uvx zizmor .github/     # security: injection, unpinned actions, excessive permissions
+actionlint          # syntax, expressions, unknown inputs
+zizmor .github/     # security: injection, unpinned actions, excessive permissions
 ```
+
+Both are single binaries (`brew install actionlint zizmor`), and both publish container images, which is how I ran them: `docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/zizmorcore/zizmor:latest .github/`. On my scratch Go repository, zizmor flagged every tag-pinned `uses:` as high severity and every Dependabot entry without a `cooldown`; the SHA-pinned examples in this note came back with no medium or high findings.
 
 ## Gotchas
 

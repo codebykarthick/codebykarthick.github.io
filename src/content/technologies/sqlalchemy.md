@@ -6,11 +6,11 @@ started: 2026-11-20
 links:
   docs: https://docs.sqlalchemy.org/en/21/
   repo: https://github.com/sqlalchemy/sqlalchemy
-language: [python]
+language: []
 lifecycle: [design, build, test]
 domain: [backend, data]
 kind: [library]
-prerequisites: [python, postgresql]
+prerequisites: [postgresql]
 roadmap:
   - title: Core basics
     goal: Connect to Postgres from Python, run parameterised SQL and control exactly when a transaction commits.
@@ -45,7 +45,7 @@ roadmap:
       - I can explain the difference between flush and commit
     notes: [sqlalchemy-orm-models-and-relationships]
   - title: Querying with select
-    goal: Write every query the inventory API needs with select(), without N+1 problems.
+    goal: Write every query a small inventory app needs with select(), without N+1 problems.
     learn:
       - select(), where(), order_by(), limit() and the Session.scalars and Session.execute entry points
       - Joins along relationships, aggregates with func and group_by, and getting rows rather than objects
@@ -61,7 +61,7 @@ roadmap:
       - I never reach for the legacy session.query() API
     notes: [sqlalchemy-querying-with-select]
   - title: Sessions and transactions in an app
-    goal: Use one session per unit of work in the inventory API, with commits and rollbacks in exactly one place.
+    goal: Use one session per unit of work in a small inventory app, with commits and rollbacks in exactly one place.
     learn:
       - sessionmaker as the session factory, configured once alongside the engine
       - Session per request, and why sessions must never be shared between threads or requests
@@ -107,7 +107,7 @@ roadmap:
     doneWhen:
       - Tests can run in any order and leave the database empty
       - The CI pipeline runs alembic upgrade head and the full test suite on every push
-    notes: [testing-sqlalchemy-code-with-pytest-and-postgres, python-ci-with-postgres-service-containers]
+    notes: [testing-sqlalchemy-code-with-pytest-and-postgres]
 resources:
   - title: SQLAlchemy unified tutorial
     url: https://docs.sqlalchemy.org/en/21/tutorial/index.html
@@ -135,7 +135,7 @@ I write Python every day for ML work, but almost always against files, object st
 
 ## How it fits with the rest of my stack
 
-SQLAlchemy is the layer between the Python code of the inventory API project and PostgreSQL. It uses the psycopg 3 driver, and the project is managed with uv. Alembic, written by the same author, turns changes to my models into migration scripts. Locally, Postgres runs in Docker and Docker Compose; in GitHub Actions, the same `postgres:18` image runs as a service container so that pytest exercises real Postgres behaviour. Everything I learn on the PostgreSQL roadmap (constraints, indexes, isolation levels) shows up here as model options, query options and session settings.
+SQLAlchemy is the layer between Python code and PostgreSQL, using the psycopg 3 driver. Alembic, written by the same author, turns changes to my models into migration scripts. Locally, Postgres runs in Docker and Docker Compose; in CI, the same `postgres:18` image can run as a service container so that pytest exercises real Postgres behaviour. Everything I learn on the PostgreSQL roadmap (constraints, indexes, isolation levels) shows up here as model options, query options and session settings.
 
 SQLAlchemy 2.1 is the current release. It needs Python 3.11 or newer, and `postgresql://` URLs now default to psycopg 3, though I always write the driver explicitly as `postgresql+psycopg://`.
 
@@ -147,7 +147,7 @@ Do the stages in order, after at least the first two PostgreSQL stages.
 2. **ORM models and relationships**: about a week.
 3. **Querying with select**: about a week; this is where most real bugs (N+1, accidental lazy loads) live.
 4. **Sessions and transactions in an app**: a few evenings, paired with the PostgreSQL transactions stage.
-5. **Migrations with Alembic**: about a week. From this point on, the inventory API project never uses `create_all()` outside tests.
-6. **Testing**: about a week, finishing with the CI pipeline from the GitHub Actions roadmap.
+5. **Migrations with Alembic**: about a week. From this point on, schema changes go through migrations and `create_all()` is for tests only.
+6. **Testing**: about a week, finishing with the suite running against a real PostgreSQL service in CI.
 
-Each stage should leave a working piece of the inventory API project behind it.
+The notes share one small example domain (warehouses and items), so each stage builds on the last.

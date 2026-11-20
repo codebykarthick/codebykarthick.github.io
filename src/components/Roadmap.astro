@@ -26,6 +26,11 @@ const stages = tech.data.roadmap;
             <div class="stage__body">
               <h3>{s.title}</h3>
               <p class="stage__goal">{s.goal}</p>
+              {s.apply && (
+                <p class="stage__apply">
+                  <span>Where I apply it:</span> {s.apply}
+                </p>
+              )}
               <div class="stage__cols">
                 {s.learn.length > 0 && (
                   <div>
@@ -91,6 +96,8 @@ const stages = tech.data.roadmap;
   }
   .stage h3 { margin-bottom: var(--space-1); }
   .stage__goal { color: var(--ink); }
+  .stage__apply { font-size: 0.95rem; color: var(--ink-dim); border-left: 2px solid var(--pink); padding-left: var(--space-2); }
+  .stage__apply span { font-family: var(--display); font-weight: 600; color: var(--ink); }
   .stage__cols { display: grid; gap: var(--space-3) var(--space-4); grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
   .stage h4 {
     font-size: 0.95rem;
