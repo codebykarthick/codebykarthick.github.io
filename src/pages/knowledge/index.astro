@@ -1,0 +1,125 @@
+---
+import Filterable from "../../components/Filterable.astro";
+import PageIntro from "../../components/PageIntro.astro";
+import { SECTIONS } from "../../data/profile";
+import { LIFECYCLES, TOPICS } from "../../data/taxonomy";
+import Landing from "../../layouts/Landing.astro";
+import { buildGroups, formatDate, LABELS, loadSite, noteFilters, techNameLabels } from "../../lib/content";
+
+const site = await loadSite();
+const section = SECTIONS.find((s) => s.href === "/knowledge")!;
+const filters = new Map(site.notes.map((n) => [n.id, noteFilters(n, site)]));
+const groups = buildGroups([...filters.values()], [
+  { key: "technology", label: "Technology", labels: techNameLabels(site) },
+  { key: "topic", label: "Topic", labels: LABELS.topic, order: TOPICS },
+  { key: "domain", label: "Domain", labels: LABELS.domain },
+  { key: "lifecycle", label: "Lifecycle", labels: LABELS.lifecycle, order: LIFECYCLES },
+]);
+const techNames = techNameLabels(site);
+---
+
+<Landing title={section.label} description={section.blurb} scene="archive">
+  <div class="wrap">
+    <PageIntro
+      title="Knowledge base"
+      lede="Notes I've written while learning. Each one belongs to a technology's roadmap, and the search covers every word."
+    />
+    <Filterable
+      id="knowledge"
+      groups={groups}
+      noun="notes"
+      searchLabel="Search notes"
+      searchHint="Searches the full text of every note."
+    >
+      <ul class="notes" role="list">
+        {
+          site.notes.map((n) => (
+            <li
+              class="note"
+              data-filter-item
+              data-id={n.id}
+              data-text={`${n.data.title} ${n.data.summary}`}
+              data-values={JSON.stringify(filters.get(n.id))}
+            >
+              <a class="note__title" href={`/knowledge/${n.id}`}>
+                {n.data.title}
+              </a>
+              <p class="note__summary">{n.data.summary}</p>
+              <p class="note__excerpt" data-excerpt hidden />
+              <p class="note__meta">
+                {n.data.technologies.map((r) => techNames[r.id]).join(", ")} · updated {formatDate(n.data.updated, "day")}
+              </p>
+            </li>
+          ))
+        }
+      </ul>
+    </Filterable>
+  </div>
+</Landing>
+
+<script>
+  import { bindFilters, type SearchResult } from "../../lib/filter-ui";
+
+  interface PagefindResult {
+    data(): Promise<{ url: string; excerpt: string }>;
+  }
+  interface Pagefind {
+    init?(): Promise<void>;
+    search(q: string): Promise<{ results: PagefindResult[] } | null>;
+  }
+
+  // The index is generated after `astro build`; in `astro dev` this fails and search falls back to titles.
+  const PAGEFIND = "/pagefind/pagefind.js";
+  let loading: Promise<Pagefind | null> | undefined;
+  function pagefind(): Promise<Pagefind | null> {
+    loading ??= (import(/* @vite-ignore */ PAGEFIND) as Promise<Pagefind>)
+      .then(async (pf) => {
+        await pf.init?.();
+        return pf;
+      })
+      .catch(() => null);
+    return loading;
+  }
+
+  function idFromUrl(url: string): string | undefined {
+    return url.split(/[?#]/)[0]?.replace(/\/$/, "").split("/knowledge/")[1];
+  }
+
+  async function search(q: string): Promise<SearchResult | null> {
+    const pf = await pagefind();
+    const found = await pf?.search(q);
+    if (!found) return null;
+    const data = await Promise.all(found.results.slice(0, 60).map((r) => r.data()));
+    const result: SearchResult = { ids: new Set(), excerpts: new Map() };
+    for (const d of data) {
+      const id = idFromUrl(d.url);
+      if (!id) continue;
+      result.ids.add(id);
+      result.excerpts.set(id, d.excerpt);
+    }
+    return result;
+  }
+
+  const root = document.getElementById("knowledge");
+  if (root) {
+    bindFilters(root, { search });
+    root.querySelector('input[name="q"]')?.addEventListener("focus", () => void pagefind(), { once: true });
+  }
+</script>
+
+<style>
+  .notes { list-style: none; margin: 0 0 var(--space-6); padding: 0; display: grid; gap: var(--space-2); }
+  .note {
+    padding: var(--space-3) var(--space-4);
+    background: var(--panel-solid);
+    border-left: 2px solid var(--rule);
+  }
+  .note[hidden] { display: none; }
+  .note:hover, .note:focus-within { border-left-color: var(--cyan); }
+  .note__title { font-family: var(--display); font-weight: 600; font-size: 1.2rem; color: var(--ink); text-decoration: none; }
+  .note__title:hover { color: var(--cyan); text-decoration: underline; }
+  .note__summary { margin: var(--space-1) 0 0; color: var(--ink); }
+  .note__excerpt { margin: var(--space-2) 0 0; font-size: 0.95rem; color: var(--ink-dim); }
+  .note__excerpt :global(mark) { background: rgba(63, 240, 255, 0.18); color: var(--ink); padding: 0 2px; }
+  .note__meta { margin: var(--space-1) 0 0; font-size: var(--step--1); color: var(--ink-dim); }
+</style>

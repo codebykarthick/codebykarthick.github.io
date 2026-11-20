@@ -1,0 +1,48 @@
+---
+import Badge from "../../components/Badge.astro";
+import PageIntro from "../../components/PageIntro.astro";
+import TagList from "../../components/TagList.astro";
+import { SECTIONS } from "../../data/profile";
+import { PROJECT_STATUS_LABELS } from "../../data/taxonomy";
+import Landing from "../../layouts/Landing.astro";
+import { formatDate, loadSite } from "../../lib/content";
+import { PROJECT_TONE } from "../../lib/tones";
+
+const site = await loadSite();
+const section = SECTIONS.find((s) => s.href === "/projects")!;
+---
+
+<Landing title={section.label} description={section.blurb} scene="construction">
+  <div class="wrap">
+    <PageIntro title="Projects" lede="Things I've built or am building, and the stack behind each one." />
+    <ul class="projects" role="list">
+      {
+        site.projects.map((p) => (
+          <li class="project panel panel--solid">
+            <div class="project__head">
+              <h2>
+                <a href={`/projects/${p.id}`}>{p.data.title}</a>
+              </h2>
+              <Badge tone={PROJECT_TONE[p.data.status]}>{PROJECT_STATUS_LABELS[p.data.status]}</Badge>
+            </div>
+            <p>{p.data.summary}</p>
+            <TagList label="Stack" items={p.data.stack.map((r) => ({ label: site.tech.get(r.id)!.data.name, href: `/stack/${r.id}` }))} />
+            <p class="project__meta">
+              Started {formatDate(p.data.started)}
+              {p.data.ended && ` · finished ${formatDate(p.data.ended)}`}
+            </p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</Landing>
+
+<style>
+  .projects { list-style: none; margin: 0 0 var(--space-6); padding: 0; display: grid; gap: var(--space-4); max-width: 860px; }
+  .project__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2); }
+  .project h2 { margin: 0; }
+  .project h2 a { color: var(--ink); text-decoration: none; }
+  .project h2 a:hover { color: var(--pink); text-decoration: underline; }
+  .project__meta { margin: var(--space-3) 0 0; font-size: var(--step--1); color: var(--ink-dim); }
+</style>

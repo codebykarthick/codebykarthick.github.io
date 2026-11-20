@@ -5,7 +5,8 @@ Sri's public reference for the tech stack they're learning: technologies are the
 ## Commands
 
 - `npm run dev`: dev server at http://localhost:4321. Pagefind search does not work here.
-- `npm run build`: `astro check` (strict TS) → `astro build` → `pagefind --site dist`. CI runs exactly this.
+- `npm run build`: `astro check` (strict TS) → `vitest run` → `astro build` → `pagefind --site dist`. CI runs exactly this.
+- `npm test`: Vitest unit tests (`src/lib/*.test.ts`).
 - `npm run preview`: serve `dist/`. Use this to test search and the real scene loading.
 - `npm run check`: type check only.
 - Debug scenes: append `?tier=low|medium|high` to force a quality tier (not persisted) and `?debug-scenes` to expose the engine as `window.__scene` (`__scene.info()` gives draw calls and GPU memory).
@@ -16,12 +17,16 @@ Sri's public reference for the tech stack they're learning: technologies are the
 src/
   pages/            routes (index, stack, knowledge, projects, ideas, about, 404)
   layouts/          Base (head, nav, scene, footer) → Landing (full scene) / Reading (ambient scene, solid panel)
-  components/       Nav, SceneHost, PauseToggle, ComingSoon, …
+  components/       Nav, SceneHost, PauseToggle, PageIntro, Filterable, TechCard, Roadmap, EntryList, TagList, Badge
   styles/tokens.css ALL design tokens (colours, fonts, spacing, scene fallback gradients)
   styles/global.css reset, type, .panel, .btn, .glitch, .prose, focus, reduced motion
   data/profile.ts   name, role, links, section list (nav order)
-  data/taxonomy.ts  ALL filter values and labels (phase 2)
-  content/          Markdown collections (phase 2)
+  data/taxonomy.ts  ALL filter values and labels
+  content.config.ts collection schemas (zod, enums from taxonomy.ts)
+  content/          technologies, notes, projects, ideas, experience, education (Markdown)
+  lib/content.ts    loadSite() (sorted collections + integrity check), filters, aggregation, roadmap paths
+  lib/filters.ts    pure filter state/URL logic (unit-tested); lib/filter-ui.ts binds it to the DOM
+  lib/tones.ts      status → badge colour
   scenes/           engine.ts, boot.ts, registry.ts, prefs.ts, types.ts, one module per scene
   scenes/kit/       shared scene building blocks extracted from the PoC
 reference/poc-index.html   original three.js r128 proof of concept, not built; keep for reference
@@ -35,7 +40,10 @@ reference/poc-index.html   original three.js r128 proof of concept, not built; k
 - Languages are not taxonomy values. A language is a technology entry with kind `language`; other technologies reference it in `language`.
 - Cross-links use `reference()` in frontmatter, never hand-written URLs.
 - Proficiency is the `status` field only. No skill bars, percentages or star ratings anywhere.
-- Seed entries carry `example: true` and show an "example" badge until replaced.
+- `example: true` shows an "Example" badge; About placeholders use `placeholder: true`.
+- Technologies can carry an ordered `roadmap` (stages with goal, learn, practice, doneWhen, notes). Notes in a stage get roadmap position and previous/next links automatically.
+- Quote YAML values containing `: `.
+- Load technologies, notes, projects and ideas through `loadSite()` in `src/lib/content.ts`, not `getCollection` directly, so the integrity check runs. (Experience and education have no references and are read directly on /about.)
 - Use the `add-content` skill when adding content or tags.
 
 ### Design
@@ -61,9 +69,9 @@ reference/poc-index.html   original three.js r128 proof of concept, not built; k
 - `site` is `https://codebykarthick.github.io` with no `base`. Commit `package-lock.json`.
 - The CV is `public/cv.pdf`. Never commit a CV with a phone number or home address: git history is permanent.
 
+## Search
+- Pagefind indexes only note pages (`data-pagefind-body` in `knowledge/[slug].astro`). `/knowledge` calls the Pagefind JS API and intersects results with the chip filters; in `astro dev` it falls back to title/summary matching.
+
 ## Status
-- Phase 1 (scaffold, engine, kit, home scene, deploy): done.
-- Phase 2: content collections, taxonomy, /stack with filters, metro scene.
-- Phase 3: knowledge base with Pagefind, archive scene.
-- Phase 4: projects, ideas, about with CV, remaining scenes, 404.
-- Phase 5: performance, accessibility and cross-browser pass.
+- Phases 1–4 done: scaffold, engine and kit, all six scenes, content model, /stack, /knowledge with search, projects, ideas, about, 404.
+- Phase 5 next: performance (Lighthouse mobile), accessibility and cross-browser pass.

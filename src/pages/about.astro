@@ -1,5 +1,110 @@
 ---
-import ComingSoon from "../components/ComingSoon.astro";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { getCollection } from "astro:content";
+import Badge from "../components/Badge.astro";
+import PageIntro from "../components/PageIntro.astro";
+import { profile, SECTIONS } from "../data/profile";
+import Landing from "../layouts/Landing.astro";
+import { formatDate } from "../lib/content";
+
+const section = SECTIONS.find((s) => s.href === "/about")!;
+const hasCv = existsSync(join(process.cwd(), "public", "cv.pdf"));
+const byOrder = <T extends { data: { order: number } }>(list: T[]) => list.sort((a, b) => a.data.order - b.data.order);
+const experience = byOrder(await getCollection("experience"));
+const education = byOrder(await getCollection("education"));
+const range = (start: Date, end?: Date) => `${formatDate(start)} to ${end ? formatDate(end) : "present"}`;
+const timelines = [
+  { id: "experience", title: "Experience", entries: experience.map((e) => ({ ...e.data, heading: e.data.role, id: e.id })) },
+  { id: "education", title: "Education", entries: education.map((e) => ({ ...e.data, heading: e.data.degree, id: e.id })) },
+];
 ---
 
-<ComingSoon href="/about" />
+<Landing title={section.label} description={section.blurb} scene="desert">
+  <div class="wrap">
+    <PageIntro title="About me" lede={`${profile.name}, ${profile.role}.`} />
+
+    <div class="panel panel--solid about">
+      <section aria-labelledby="intro-title">
+        <h2 id="intro-title">Who I am</h2>
+        <p class="placeholder-text">
+          <Badge tone="amber" outline>Placeholder</Badge> A short introduction goes here: what I work on, what I'm good at, and what
+          I'm learning now. Two or three sentences is plenty. Edit it in <code>src/pages/about.astro</code>.
+        </p>
+      </section>
+
+      <section class="cv" aria-labelledby="cv-title">
+        <h2 id="cv-title">CV</h2>
+        {
+          hasCv ? (
+            <p>
+              <a class="btn btn--primary" href="/cv.pdf" download>
+                Download my CV (PDF)
+              </a>
+            </p>
+          ) : (
+            <p class="muted">CV coming soon.</p>
+          )
+        }
+      </section>
+
+      {
+        timelines.map((t) => (
+          <section class="timeline" aria-labelledby={`${t.id}-title`}>
+            <h2 id={`${t.id}-title`}>{t.title}</h2>
+            <ol>
+              {t.entries.map((e) => (
+                <li>
+                  <div class="timeline__head">
+                    <h3>{e.heading}</h3>
+                    {e.placeholder && (
+                      <Badge tone="amber" outline>
+                        Placeholder
+                      </Badge>
+                    )}
+                  </div>
+                  <p class="timeline__meta">
+                    {e.org}
+                    {e.location && `, ${e.location}`} · {range(e.start, e.end)}
+                  </p>
+                  {e.highlights.length > 0 && (
+                    <ul>
+                      {e.highlights.map((h) => (
+                        <li>{h}</li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </section>
+        ))
+      }
+
+      <section aria-labelledby="links-title">
+        <h2 id="links-title">Elsewhere</h2>
+        <ul class="elsewhere">
+          <li><a href={profile.links.github}>GitHub</a></li>
+          <li><a href={profile.links.linkedin}>LinkedIn</a></li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</Landing>
+
+<style>
+  .about { display: grid; gap: var(--space-5); max-width: 860px; margin-bottom: var(--space-6); padding: clamp(var(--space-4), 4vw, var(--space-6)); }
+  .about h2 { margin-bottom: var(--space-3); }
+  .placeholder-text { color: var(--ink-dim); max-width: 62ch; }
+  .muted { color: var(--ink-dim); }
+  .btn--primary { color: var(--night); background: var(--cyan); border-color: var(--cyan); font-weight: 600; }
+  .btn--primary:hover { color: var(--night); background: var(--ink); }
+  .timeline ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+  .timeline ol > li { padding-left: var(--space-4); border-left: 2px solid var(--pink); }
+  .timeline__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+  .timeline h3 { margin: 0; }
+  .timeline__meta { color: var(--ink-dim); font-size: 1rem; margin: var(--space-1) 0 var(--space-2); }
+  .timeline ul { margin: 0; padding-left: 1.1em; }
+  .timeline ul li + li { margin-top: var(--space-1); }
+  .elsewhere { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-4); }
+</style>

@@ -12,9 +12,11 @@ export interface Props {
   description?: string;
   scene: SceneId;
   mode?: SceneMode;
+  /** false: gradient only, never load three.js (the 404 page). */
+  sceneLive?: boolean;
 }
 
-const { title, description = profile.description, scene, mode = "full" } = Astro.props;
+const { title, description = profile.description, scene, mode = "full", sceneLive = true } = Astro.props;
 const fullTitle = title ? `${title} | ${profile.siteTitle}` : profile.siteTitle;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
@@ -39,7 +41,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
   </head>
   <body data-mode={mode}>
     <a class="skip-link" href="#main">Skip to content</a>
-    <SceneHost scene={scene} mode={mode} />
+    <SceneHost scene={scene} mode={mode} live={sceneLive} />
     <Nav />
     <main id="main" tabindex="-1">
       <slot />

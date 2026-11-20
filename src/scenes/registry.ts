@@ -6,4 +6,9 @@ import type { SceneId, SceneModule } from "./types";
  */
 export const SCENES: Partial<Record<SceneId, () => Promise<SceneModule>>> = {
   home: () => import("./home"),
+  metro: () => import("./metro"),
+  archive: () => import("./archive"),
+  construction: () => import("./construction"),
+  rooftop: () => import("./rooftop"),
+  desert: () => import("./desert"),
 };

@@ -67,7 +67,7 @@ Design each scene so the frame at `settleTime` looks good when frozen: signs lit
 
 ## Performance budget
 
-- Draw calls, measured with `?tier=medium&debug-scenes` → `__scene.info().calls`: ≤ 120 on low and medium, ≤ 300 on high. Home is about 67 on medium and 58 on low.
+- Draw calls, measured with `?tier=medium&debug-scenes` → `__scene.info().calls`: ≤ 120 on low and medium, ≤ 300 on high. Home is about 67 on medium and 58 on low; see catalog.md for the rest.
 - Use `kit.statics` for anything that doesn't move, `kit.glows` for every point light (one instanced draw call for all of them), and `kit.streaks` for ground reflections.
 - Avoid `DoubleSide` on transparent meshes: three.js draws them twice. Use `forceSinglePass: true` or keep the camera on the front side.
 - Scene module ≤ 15 KB gzipped. Scene build ≤ 100 ms on a mid-tier phone. No textures from the network: everything is procedural canvas.

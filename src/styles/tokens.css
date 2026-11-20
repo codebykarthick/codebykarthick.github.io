@@ -51,5 +51,5 @@
   --scene-archive: radial-gradient(90% 70% at 50% 60%, #0b2a36 0%, #071620 50%, #03070c 100%);
   --scene-construction: radial-gradient(120% 80% at 50% 100%, #4a2414 0%, #1d0d16 45%, #07050f 100%);
   --scene-rooftop: radial-gradient(140% 90% at 50% 0%, #4a1d55 0%, #1c0b2c 50%, #07050f 100%);
-  --scene-desert: linear-gradient(180deg, #1a0b2e 0%, #5a1e4e 45%, #c4573f 72%, #2a1220 100%);
+  --scene-desert: linear-gradient(180deg, #0a0618 0%, #2a1048 34%, #8a2e62 46%, #ffb070 50%, #3a1626 52%, #120810 100%);
 }

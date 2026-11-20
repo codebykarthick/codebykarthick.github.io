@@ -1,0 +1,60 @@
+---
+import Badge from "./Badge.astro";
+import { LABELS, techFilters, type Tech } from "../lib/content";
+import { STATUS_TONE } from "../lib/tones";
+
+interface Props {
+  tech: Tech;
+}
+
+const { tech } = Astro.props;
+const d = tech.data;
+---
+
+<li
+  class="tech"
+  data-filter-item
+  data-id={tech.id}
+  data-text={`${d.name} ${d.summary}`}
+  data-values={JSON.stringify(techFilters(tech))}
+>
+  <a class="tech__link" href={`/stack/${tech.id}`}>
+    <span class="tech__head">
+      <span class="tech__name">{d.name}</span>
+      <Badge tone={STATUS_TONE[d.status]}>{LABELS.status[d.status]}</Badge>
+    </span>
+    <span class="tech__summary">{d.summary}</span>
+    <span class="tech__meta">
+      {[...d.kind.map((k) => LABELS.kind[k]), ...d.domain.map((k) => LABELS.domain[k])].join(" · ")}
+      {d.roadmap.length > 0 && ` · ${d.roadmap.length}-stage roadmap`}
+    </span>
+    {d.example && <Badge tone="amber" outline>Example</Badge>}
+  </a>
+</li>
+
+<style>
+  .tech { display: flex; }
+  .tech[hidden] { display: none; }
+  .tech__link {
+    flex: 1;
+    display: grid;
+    align-content: start;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    background: var(--panel-solid);
+    border-top: 1px solid var(--rule);
+    color: inherit;
+    text-decoration: none;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+    transition: border-color 0.15s, background-color 0.15s;
+  }
+  .tech__link:hover, .tech__link:focus-visible {
+    border-top-color: var(--pink);
+    background: color-mix(in srgb, var(--pink) 8%, var(--panel-solid));
+  }
+  .tech__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
+  .tech__name { font-family: var(--display); font-weight: 600; font-size: 1.35rem; line-height: 1.2; }
+  .tech__link:hover .tech__name { color: var(--pink); }
+  .tech__summary { color: var(--ink); line-height: 1.45; }
+  .tech__meta { font-size: var(--step--1); color: var(--ink-dim); }
+</style>

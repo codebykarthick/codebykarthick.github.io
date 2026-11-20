@@ -42,7 +42,7 @@ Returns:
 - Translate and rotate geometry in place before adding. All geometries per material must share attributes (all indexed, or none).
 
 ## `buildings.ts`
-- `buildingGeometry(rng, x, z, w, d, h, y0 = 0)`: a positioned box with the PoC's window UV tiling (one tile per 12×24 units, dark roof)
+- `buildingGeometry(rng, x, z, w, d, h, y0 = 0, { tile?, jitter? })`: a positioned box with the PoC's UV tiling. One texture tile per `tile` units, default `[12, 24]` (window grid), dark top and bottom. `jitter: false` disables the random horizontal offset, for panels like server racks that must line up.
 - `boxEdges(x, y, z, w, h, d)`: edge lines for neon outlines
 - `Frontage`: `{ side, x, w, zc, d, h }` street-facing facade info
 
@@ -69,6 +69,10 @@ Returns:
 ## `rain.ts`: `createRain(kit, { count, width, height, zMin, zMax, color?, opacity?, slant? }) → { update(dt) }`
 
 ## `searchlights.ts`: `createSearchlights(kit) → { add(x, z, color, { length?, radius?, tilt?, y?, opacity? }), update(t) }`
+
+## `paths.ts`
+- `new Polyline(points)`: `.length`, `.at(s, out)` samples by distance (clamped), `.segments()`
+- `octilinear(stops2d, y)`: metro-map routing (a 45° run then a straight run between stops)
 
 ## `canvas.ts`
 - `makeCanvas(w, h) → { canvas, g }`, `canvasTexture(canvas)`

@@ -21,7 +21,7 @@ This README is my own how-to guide: how to add things to the site without having
    - [Add an idea, or turn one into a project](#add-an-idea-or-turn-one-into-a-project)
    - [Update the About page and CV](#update-the-about-page-and-cv)
    - [Add a new tag, topic or filter value](#add-a-new-tag-topic-or-filter-value)
-   - [Replace the example content](#replace-the-example-content)
+   - [Mark something as an example](#mark-something-as-an-example)
    - [Change my name, role or links](#change-my-name-role-or-links)
    - [Add a new top-level page](#add-a-new-top-level-page)
    - [Change colours or fonts](#change-colours-or-fonts)
@@ -36,15 +36,17 @@ This README is my own how-to guide: how to add things to the site without having
 
 ## What's built so far
 
-The site is being built in phases. Recipes marked with a phase only work once that phase has landed.
-
 | Phase | What it adds | Status |
 |---|---|---|
-| 1 | Astro scaffold, deploy workflow, nav, design tokens, scene engine, home page | Live |
-| 2 | Content collections, tag list (`taxonomy.ts`), `/stack` with filters, technology pages, metro scene | Next |
-| 3 | Knowledge base with full-text search, archive scene | Planned |
-| 4 | Projects, ideas, About page with CV, 404, remaining scenes | Planned |
-| 5 | Performance, accessibility and cross-browser polish | Planned |
+| 1 | Astro scaffold, deploy workflow, nav, design tokens, scene engine, home page | Done |
+| 2 | Content collections, tag list (`taxonomy.ts`), `/stack` with filters, technology pages with roadmaps, metro scene | Done |
+| 3 | Knowledge base with full-text search, archive scene | Done |
+| 4 | Projects, ideas, About page with CV, 404, construction, rooftop and desert scenes | Done |
+| 5 | Performance, accessibility and cross-browser polish | Next |
+
+Every recipe below works now.
+
+The site starts with a real learning curriculum: roadmaps for Python, Docker, PostgreSQL, SQLAlchemy and GitHub Actions, notes for each roadmap stage, and the inventory API capstone project that ties them together. The About page has placeholder entries, marked with a "Placeholder" badge, waiting for the CV.
 
 ---
 
@@ -60,7 +62,8 @@ npm run dev          # http://localhost:4321, reloads as you edit
 | Command | What it does | When to use it |
 |---|---|---|
 | `npm run dev` | Dev server with hot reload | Writing content, tweaking styles |
-| `npm run build` | Type check, build to `dist/`, then build the search index | Before pushing, to catch errors CI would catch |
+| `npm run build` | Type check, unit tests, build to `dist/`, then build the search index | Before pushing, to catch errors CI would catch |
+| `npm test` | Unit tests (Vitest) for the filter logic | After changing `src/lib/filters.ts` |
 | `npm run preview` | Serves the built `dist/` | Testing search and the real scene loading |
 | `npm run check` | Type check only | Quick sanity check |
 
@@ -135,8 +138,6 @@ Formats to remember:
 
 ### Add a technology to the tech stack
 
-*(Phase 2)*
-
 1. Create `src/content/technologies/<slug>.md`, for example `fastapi.md`.
 2. Fill in the frontmatter:
 
@@ -153,9 +154,31 @@ language: [python]
 lifecycle: [build, deploy]
 domain: [backend, ml]
 kind: [framework]
+prerequisites: [python, sqlalchemy]
+roadmap:
+  - title: First endpoints
+    goal: Serve a typed JSON API locally with automatic docs.
+    learn:
+      - Path and query parameters, request bodies with Pydantic models
+      - Dependency injection with Depends
+    practice:
+      - Build a health check and a CRUD endpoint for one table
+    doneWhen:
+      - "I can explain what Depends does without looking it up"
+    notes: [fastapi-first-endpoints]   # note slugs that must exist
+  - title: Talking to the database
+    goal: One SQLAlchemy session per request, committed or rolled back correctly.
+    learn: []
+    practice: []
+    doneWhen: []
+    notes: []
+resources:
+  - title: FastAPI tutorial
+    url: https://fastapi.tiangolo.com/tutorial/
+    kind: tutorial
 ---
-Optional: a few paragraphs on why I'm learning it, what clicked, what didn't.
-This appears on /stack/fastapi above the auto-collected lists.
+Optional body: why I'm learning it, how it fits with the rest of the stack,
+how long each stage should take. It appears above the roadmap on /stack/fastapi.
 ```
 
 3. Run `npm run dev` and open `/stack/fastapi`.
@@ -173,6 +196,24 @@ This appears on /stack/fastapi above the auto-collected lists.
 | `lifecycle` | yes | Where it fits: `design`, `build`, `test`, `deploy`, `operate`. Pick all that apply. |
 | `domain` | yes | `frontend`, `backend`, `data`, `ml`, `devops` |
 | `kind` | yes | `language`, `framework`, `library`, `tool`, `platform` |
+| `prerequisites` | no | Technology slugs worth learning first. Their pages list this one under "Where it leads". |
+| `roadmap` | no | Ordered learning stages (see below) |
+| `resources` | no | Links, each with `title`, `url` and `kind`: `docs`, `tutorial`, `course`, `book`, `video`, `article` or `tool` |
+
+**Roadmap stages** turn a technology page into a learning path. Each stage has:
+
+| Field | What to put |
+|---|---|
+| `title` | Short stage name, sentence case |
+| `goal` | One sentence: what I can do once the stage is done |
+| `learn` | Concepts to understand |
+| `practice` | Concrete exercises |
+| `doneWhen` | Checkable outcomes, shown as a checklist |
+| `notes` | Note slugs for this stage, in reading order |
+
+A note listed in a stage gets a "Part of the FastAPI roadmap, stage 1" banner and previous and next links, so the notes read as a course. Notes that mention a technology without being in a stage still appear under "More notes".
+
+YAML tip: wrap any text containing `: ` (colon then space) in double quotes, as in the `doneWhen` line above. Otherwise YAML reads it as a nested key and the build fails.
 
 **What happens automatically:**
 - A card appears on `/stack`, and the filter chips pick up its tags.
@@ -182,8 +223,6 @@ This appears on /stack/fastapi above the auto-collected lists.
 If a tag you want isn't allowed yet, see [Add a new tag](#add-a-new-tag-topic-or-filter-value).
 
 ### Add a programming language
-
-*(Phase 2)*
 
 Languages are technologies too, not tags. So Python gets its own page and lists everything I use with it.
 
@@ -210,8 +249,6 @@ The build checks that anything listed under `language` really is a language. If 
 
 ### Write a note in the knowledge base
 
-*(Phase 3. The files can be written from phase 2.)*
-
 Notes are my write-ups and discussions: what I learned, how something works, gotchas, comparisons. They're the knowledge base, and they're full-text searchable.
 
 1. Create `src/content/notes/<slug>.md`:
@@ -236,13 +273,14 @@ with torch.autocast("cuda", dtype=torch.float16):
 ````
 
 2. Open `/knowledge/<slug>` in dev to read it back.
+3. To make it part of a learning path, add its slug to a stage's `notes` list in the technology's `roadmap`.
 
 | Field | What to put |
 |---|---|
 | `title` | The note's headline, in sentence case |
 | `summary` | One line, shown in the list and in search results |
 | `technologies` | At least one technology slug. This is what puts the note on those technology pages. |
-| `topics` | Topic tags from `taxonomy.ts` (for example `performance`, `debugging`, `architecture`) |
+| `topics` | Topic tags from `taxonomy.ts` (for example `performance`, `debugging`, `testing`) |
 | `updated` | Bump this whenever you meaningfully revise the note |
 
 **Writing tips:**
@@ -252,8 +290,6 @@ with torch.autocast("cuda", dtype=torch.float16):
 - Search covers the whole body. A note doesn't need keyword stuffing to be findable.
 
 ### Add a project
-
-*(Phase 4. The files can be written from phase 2.)*
 
 1. Create `src/content/projects/<slug>.md`:
 
@@ -280,8 +316,6 @@ What it does, why I built it, how it's put together, what I'd do differently.
 
 ### Add an idea, or turn one into a project
 
-*(Phase 4. The files can be written from phase 2.)*
-
 Ideas are things I might build. They're short; a summary is often enough.
 
 ```md
@@ -306,8 +340,6 @@ Statuses:
 The `/ideas` page then links the idea to its project. The build enforces the pairing: `became-project` without a `project`, or a `project` with any other status, fails.
 
 ### Update the About page and CV
-
-*(Phase 4)*
 
 The About page is built from two collections, so jobs and degrees are data, not one big blob of text.
 
@@ -334,6 +366,7 @@ Optional extra paragraph about the role.
 - `order` sets display order, lowest first. Put the most recent at `1`.
 - **Highlights:** one achievement per line, outcome first, with a number where you have one. These are what someone skimming the page will read.
 - Delete the `placeholder: true` entries once real ones exist.
+- The short "Who I am" introduction at the top of the page lives in `src/pages/about.astro`.
 
 **The CV download:**
 1. Export the CV as PDF.
@@ -346,8 +379,6 @@ Optional extra paragraph about the role.
 To update the CV, overwrite `public/cv.pdf` and push. Same filename, same link.
 
 ### Add a new tag, topic or filter value
-
-*(Phase 2)*
 
 All allowed tag values live in **one file**: `src/data/taxonomy.ts`. The schemas read from it, so a value that isn't there fails the build. That's how typos get caught.
 
@@ -378,19 +409,13 @@ That's the only file to touch. The filter chip appears on `/stack` automatically
 - **Topics** for notes work the same way, in the topics list.
 - **Languages are not here.** See [Add a programming language](#add-a-programming-language).
 
-### Replace the example content
+### Mark something as an example
 
-*(Phase 2)*
+Any technology, note, project or idea can carry `example: true` in its frontmatter. It then shows an "Example" badge, which is handy for a draft entry that's there to show the shape rather than real progress. Remove the line when it becomes real.
 
-The site ships with example entries (4 technologies, 3 notes, 1 project, 2 ideas) so the cross-linking can be seen working. Each one has `example: true` and shows an "example" badge.
-
-For each one, either:
-- **edit it** into a real entry and delete the `example: true` line, or
-- **delete the file.** If something else references it, the build says which file and field; fix or delete that too.
+The starting curriculum isn't marked as examples: it's real study material. Read each note before treating it as your own, and edit freely. They're your notes now.
 
 ### Change my name, role or links
-
-*(Works now)*
 
 Edit `src/data/profile.ts`:
 
@@ -407,8 +432,6 @@ export const profile = {
 The section blurbs on the home page (`SECTIONS`) live in the same file.
 
 ### Add a new top-level page
-
-*(Works now)*
 
 For a page that isn't one of the content collections, for example `/uses` for my hardware and tools:
 
@@ -437,15 +460,11 @@ Prefer Markdown? `src/pages/uses.md` also works, but `.astro` gets the site layo
 
 ### Change colours or fonts
 
-*(Works now)*
-
 Everything visual comes from `src/styles/tokens.css`: palette, panel opacity, font stacks, type scale, spacing, and each scene's fallback gradient. Change a value there and it applies everywhere. Don't hard-code hex colours in components.
 
 Fonts are set up in `astro.config.mjs` (`fonts:`). They're downloaded from Google Fonts at build time and served from this site, so visitors never hit Google.
 
 ### Add or change a background scene
-
-*(Works now; more scenes arrive in phases 2–4)*
 
 Scenes live in `src/scenes/`. The full guide, with the engine contract, kit API, performance budget and test checklist, is in `.claude/skills/cyberpunk-scenes/SKILL.md`. The short version:
 
@@ -491,6 +510,8 @@ The build is strict on purpose. Typical messages and what they mean:
 | `language must be empty when kind is language` | A language listing languages | Set `language: []` |
 | `… is not a language` | `language:` points at a non-language technology | Only reference technologies with `kind: [language]` |
 | `became-project requires project` | Idea status and `project` field disagree | Add `project:` or change the status |
+| `Nested mappings are not allowed in compact mappings` | Unquoted text containing `: ` in frontmatter | Wrap the value in double quotes |
+| `Content integrity check failed` followed by a list | Broken references, all listed at once | Fix each file and field named |
 | An error in a `.ts` / `.astro` file | A type error from `astro check` | Read the file and line in the message |
 
 The message always names the file. Fix it, run `npm run build` again, then push.

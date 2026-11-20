@@ -1,5 +1,60 @@
 ---
-import ComingSoon from "../components/ComingSoon.astro";
+import { render } from "astro:content";
+import Badge from "../components/Badge.astro";
+import PageIntro from "../components/PageIntro.astro";
+import TagList from "../components/TagList.astro";
+import { SECTIONS } from "../data/profile";
+import { IDEA_STATUS_LABELS, IDEA_STATUSES } from "../data/taxonomy";
+import Landing from "../layouts/Landing.astro";
+import { loadSite } from "../lib/content";
+import { IDEA_TONE } from "../lib/tones";
+
+const site = await loadSite();
+const section = SECTIONS.find((s) => s.href === "/ideas")!;
+const ORDER = ["exploring", "raw", "became-project", "parked"] as const satisfies readonly (typeof IDEA_STATUSES)[number][];
+const ideas = [...site.ideas].sort((a, b) => ORDER.indexOf(a.data.status) - ORDER.indexOf(b.data.status));
+const rendered = await Promise.all(ideas.map(async (i) => ({ idea: i, Content: (await render(i)).Content })));
 ---
 
-<ComingSoon href="/ideas" />
+<Landing title={section.label} description={section.blurb} scene="rooftop">
+  <div class="wrap">
+    <PageIntro title="Ideas" lede="Things I might build next, and where each one stands. Some grow up into projects." />
+    <ul class="ideas" role="list">
+      {
+        rendered.map(({ idea, Content }) => {
+          const d = idea.data;
+          const project = d.project ? site.project.get(d.project.id) : undefined;
+          return (
+            <li class="idea panel panel--solid" id={idea.id}>
+              <div class="idea__head">
+                <h2>{d.title}</h2>
+                <Badge tone={IDEA_TONE[d.status]}>{IDEA_STATUS_LABELS[d.status]}</Badge>
+              </div>
+              <p class="idea__summary">{d.summary}</p>
+              <div class="prose idea__body">
+                <Content />
+              </div>
+              {project && (
+                <p class="idea__project">
+                  Now a project: <a href={`/projects/${project.id}`}>{project.data.title}</a>
+                </p>
+              )}
+              <TagList label="Technologies" items={d.technologies.map((r) => ({ label: site.tech.get(r.id)!.data.name, href: `/stack/${r.id}` }))} />
+            </li>
+          );
+        })
+      }
+    </ul>
+  </div>
+</Landing>
+
+<style>
+  .ideas { list-style: none; margin: 0 0 var(--space-6); padding: 0; display: grid; gap: var(--space-4); max-width: 860px; }
+  .idea { scroll-margin-top: var(--space-5); }
+  .idea:target { border-top-color: var(--pink); }
+  .idea__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: var(--space-2); }
+  .idea h2 { margin: 0; }
+  .idea__summary { font-size: var(--step-0); }
+  .idea__body { color: var(--ink-dim); }
+  .idea__project { font-family: var(--display); font-weight: 500; }
+</style>

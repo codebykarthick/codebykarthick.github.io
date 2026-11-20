@@ -1,0 +1,128 @@
+---
+import { render } from "astro:content";
+import EntryList from "../../components/EntryList.astro";
+import TagList from "../../components/TagList.astro";
+import Reading from "../../layouts/Reading.astro";
+import { formatDate, LABELS, loadSite, notePath, type Note } from "../../lib/content";
+
+export async function getStaticPaths() {
+  const site = await loadSite();
+  return site.notes.map((note) => ({ params: { slug: note.id }, props: { note } }));
+}
+
+interface Props {
+  note: Note;
+}
+
+const { note } = Astro.props;
+const site = await loadSite();
+const d = note.data;
+const { Content } = await render(note);
+const path = notePath(note, site);
+const techIds = new Set(d.technologies.map((r) => r.id));
+const related = site.notes
+  .filter((n) => n.id !== note.id && n.data.technologies.some((r) => techIds.has(r.id)))
+  .slice(0, 5);
+---
+
+<Reading title={d.title} description={d.summary} scene="archive">
+  <div data-pagefind-body>
+    <header class="head">
+      <p class="crumb" data-pagefind-ignore><a href="/knowledge">Knowledge base</a></p>
+      <h1 class="chroma glitch">{d.title}</h1>
+      <p class="lede">{d.summary}</p>
+      <div class="meta" data-pagefind-ignore>
+        <TagList label="Technologies" items={d.technologies.map((r) => ({ label: site.tech.get(r.id)!.data.name, href: `/stack/${r.id}` }))} />
+        <TagList label="Topics" items={d.topics.map((t) => ({ label: LABELS.topic[t]! }))} />
+        <p>Updated <time datetime={d.updated.toISOString().slice(0, 10)}>{formatDate(d.updated, "day")}</time></p>
+      </div>
+    </header>
+
+    {
+      path.length > 0 && (
+        <aside class="path" aria-label="Roadmap position" data-pagefind-ignore>
+          {path.map((p) => (
+            <p>
+              Part of the <a href={`/stack/${p.tech.id}#stage-${p.stageIndex + 1}`}>{p.tech.data.name} roadmap</a>, stage{" "}
+              {p.stageIndex + 1}: {p.stageTitle}
+            </p>
+          ))}
+        </aside>
+      )
+    }
+
+    <div class="prose">
+      <Content />
+    </div>
+  </div>
+
+  {
+    path.length > 0 && (
+      <nav class="steps" aria-label="Previous and next in roadmap">
+        {path.map((p) => (
+          <div class="steps__row">
+            <p class="steps__label">{p.tech.data.name} roadmap</p>
+            <div class="steps__links">
+              {p.prev ? (
+                <a class="step step--prev" href={`/knowledge/${p.prev.id}`}>
+                  <span>Previous</span>
+                  {p.prev.data.title}
+                </a>
+              ) : (
+                <span />
+              )}
+              {p.next && (
+                <a class="step step--next" href={`/knowledge/${p.next.id}`}>
+                  <span>Next</span>
+                  {p.next.data.title}
+                </a>
+              )}
+            </div>
+          </div>
+        ))}
+      </nav>
+    )
+  }
+
+  {
+    related.length > 0 && (
+      <section class="related" aria-labelledby="related-title">
+        <h2 id="related-title">Related notes</h2>
+        <EntryList entries={related.map((n) => ({ href: `/knowledge/${n.id}`, title: n.data.title, summary: n.data.summary }))} />
+      </section>
+    )
+  }
+</Reading>
+
+<style>
+  .crumb { margin-bottom: var(--space-2); font-size: var(--step--1); }
+  .head h1 { font-size: clamp(2rem, 5vw, 3.25rem); margin-bottom: var(--space-2); }
+  .lede { font-size: var(--step-1); max-width: 60ch; }
+  .meta { display: grid; gap: var(--space-2); font-size: var(--step--1); color: var(--ink-dim); }
+  .meta p { margin: 0; }
+  .path {
+    margin: var(--space-4) 0;
+    padding: var(--space-3);
+    border-left: 2px solid var(--amber);
+    background: rgba(255, 179, 71, 0.06);
+    font-size: 0.95rem;
+  }
+  .path p { margin: 0; }
+  .path p + p { margin-top: var(--space-1); }
+  .steps { margin-top: var(--space-6); display: grid; gap: var(--space-4); }
+  .steps__label { font-family: var(--display); font-weight: 600; color: var(--ink-dim); margin-bottom: var(--space-2); }
+  .steps__links { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-3); }
+  .step {
+    display: grid;
+    gap: var(--space-1);
+    padding: var(--space-3);
+    border: 1px solid var(--rule);
+    text-decoration: none;
+    font-family: var(--display);
+    font-weight: 600;
+  }
+  .step span { font-family: var(--body); font-weight: 400; font-size: var(--step--1); color: var(--ink-dim); }
+  .step:hover { border-color: var(--cyan); }
+  .step--next { text-align: right; }
+  .related { margin-top: var(--space-6); }
+</style>

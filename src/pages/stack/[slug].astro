@@ -1,0 +1,151 @@
+---
+import { render } from "astro:content";
+import Badge from "../../components/Badge.astro";
+import EntryList from "../../components/EntryList.astro";
+import Roadmap from "../../components/Roadmap.astro";
+import TagList from "../../components/TagList.astro";
+import { IDEA_STATUS_LABELS, PROJECT_STATUS_LABELS, RESOURCE_KIND_LABELS } from "../../data/taxonomy";
+import Reading from "../../layouts/Reading.astro";
+import { formatDate, LABELS, loadSite, techAggregate, type Tech } from "../../lib/content";
+import { STATUS_TONE } from "../../lib/tones";
+
+export async function getStaticPaths() {
+  const site = await loadSite();
+  return site.techs.map((tech) => ({ params: { slug: tech.id }, props: { tech } }));
+}
+
+interface Props {
+  tech: Tech;
+}
+
+const { tech } = Astro.props;
+const site = await loadSite();
+const d = tech.data;
+const agg = techAggregate(tech, site);
+const { Content } = await render(tech);
+const techLink = (id: string) => ({ label: site.tech.get(id)?.data.name ?? id, href: `/stack/${id}` });
+const facts = [
+  { term: "Used with", items: d.language.map((r) => techLink(r.id)) },
+  { term: "Kind", items: d.kind.map((k) => ({ label: LABELS.kind[k]! })) },
+  { term: "Domain", items: d.domain.map((k) => ({ label: LABELS.domain[k]! })) },
+  { term: "Lifecycle", items: d.lifecycle.map((k) => ({ label: LABELS.lifecycle[k]! })) },
+  { term: "Learn first", items: d.prerequisites.map((r) => techLink(r.id)) },
+].filter((f) => f.items.length > 0);
+---
+
+<Reading title={d.name} description={d.summary} scene="metro">
+  <header class="head">
+    <p class="crumb"><a href="/stack">Tech stack</a></p>
+    <h1 class="chroma glitch">{d.name}</h1>
+    <p class="lede">{d.summary}</p>
+    <div class="status">
+      <Badge tone={STATUS_TONE[d.status]}>{LABELS.status[d.status]}</Badge>
+      <span>since {formatDate(d.started)}</span>
+      {d.example && <Badge tone="amber" outline>Example</Badge>}
+    </div>
+  </header>
+
+  <dl class="facts">
+    {
+      facts.map((f) => (
+        <div>
+          <dt>{f.term}</dt>
+          <dd>
+            <TagList items={f.items} />
+          </dd>
+        </div>
+      ))
+    }
+    {
+      (d.links.docs || d.links.repo) && (
+        <div>
+          <dt>Links</dt>
+          <dd class="links">
+            {d.links.docs && <a href={d.links.docs}>Documentation</a>}
+            {d.links.repo && <a href={d.links.repo}>Source repository</a>}
+          </dd>
+        </div>
+      )
+    }
+  </dl>
+
+  <div class="prose body">
+    <Content />
+  </div>
+
+  <Roadmap tech={tech} site={site} />
+
+  {
+    d.resources.length > 0 && (
+      <section class="section" aria-labelledby="resources-title">
+        <h2 id="resources-title">Resources</h2>
+        <EntryList entries={d.resources.map((r) => ({ href: r.url, title: r.title, meta: RESOURCE_KIND_LABELS[r.kind] }))} />
+      </section>
+    )
+  }
+
+  {
+    agg.otherNotes.length > 0 && (
+      <section class="section" aria-labelledby="notes-title">
+        <h2 id="notes-title">More notes</h2>
+        <EntryList entries={agg.otherNotes.map((n) => ({ href: `/knowledge/${n.id}`, title: n.data.title, summary: n.data.summary }))} />
+      </section>
+    )
+  }
+
+  <section class="section" aria-labelledby="projects-title">
+    <h2 id="projects-title">Projects using {d.name}</h2>
+    <EntryList
+      entries={agg.projects.map((p) => ({ href: `/projects/${p.id}`, title: p.data.title, summary: p.data.summary, meta: PROJECT_STATUS_LABELS[p.data.status] }))}
+      empty="No projects yet."
+    />
+  </section>
+
+  {
+    agg.ideas.length > 0 && (
+      <section class="section" aria-labelledby="ideas-title">
+        <h2 id="ideas-title">Ideas involving {d.name}</h2>
+        <EntryList entries={agg.ideas.map((i) => ({ href: `/ideas#${i.id}`, title: i.data.title, summary: i.data.summary, meta: IDEA_STATUS_LABELS[i.data.status] }))} />
+      </section>
+    )
+  }
+
+  {
+    agg.usedWith.length > 0 && (
+      <section class="section" aria-labelledby="with-title">
+        <h2 id="with-title">Used with {d.name}</h2>
+        <EntryList entries={agg.usedWith.map((t) => ({ href: `/stack/${t.id}`, title: t.data.name, summary: t.data.summary }))} />
+      </section>
+    )
+  }
+
+  {
+    agg.prerequisiteFor.length > 0 && (
+      <section class="section" aria-labelledby="next-title">
+        <h2 id="next-title">Where it leads</h2>
+        <p class="hint">These technologies list {d.name} as something to learn first.</p>
+        <EntryList entries={agg.prerequisiteFor.map((t) => ({ href: `/stack/${t.id}`, title: t.data.name, summary: t.data.summary }))} />
+      </section>
+    )
+  }
+</Reading>
+
+<style>
+  .crumb { margin-bottom: var(--space-2); font-size: var(--step--1); }
+  .head h1 { font-size: clamp(2.5rem, 6vw, 4rem); margin-bottom: var(--space-2); }
+  .lede { font-size: var(--step-1); max-width: 60ch; }
+  .status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); color: var(--ink-dim); font-size: var(--step--1); }
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-3) var(--space-4);
+    margin: var(--space-5) 0;
+    padding: var(--space-4) 0;
+    border-block: 1px solid var(--rule);
+  }
+  .facts dt { font-family: var(--display); font-weight: 600; font-size: 0.9rem; color: var(--ink-dim); margin-bottom: var(--space-2); }
+  .facts dd { margin: 0; }
+  .links { display: grid; gap: var(--space-1); }
+  .section { margin-top: var(--space-6); }
+  .hint { color: var(--ink-dim); }
+</style>

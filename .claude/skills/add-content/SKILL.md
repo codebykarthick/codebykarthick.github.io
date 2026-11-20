@@ -5,7 +5,7 @@ description: Add or edit site content (a technology, note, project, idea, or Abo
 
 # Adding content
 
-> The collections and `src/data/taxonomy.ts` land in phase 2. Until then this skill describes the agreed schema; check it against `src/content.config.ts` once that file exists.
+Schemas live in `src/content.config.ts`; allowed values in `src/data/taxonomy.ts`. `src/lib/content.ts` runs an integrity check during the build (broken references, `language` pointing at a non-language, duplicate names) and fails it with a list of every problem.
 
 Technologies are the hub. Notes, projects and ideas reference technologies, and each technology page (`/stack/<slug>`) automatically lists everything that references it. You never maintain those lists by hand.
 
@@ -26,9 +26,25 @@ language: [python]       # technologies with kind "language" it's used WITH; [] 
 lifecycle: [build, test]  # design | build | test | deploy | operate
 domain: [ml]             # frontend | backend | data | ml | devops
 kind: [framework]        # language | framework | library | tool | platform
+prerequisites: [python]  # optional: technologies to learn first
+roadmap:                 # optional: ordered learning stages
+  - title: Tensors and autograd
+    goal: One sentence on what I can do after this stage.
+    learn: [Concept one, Concept two]
+    practice: [An exercise]
+    doneWhen: ["A checkable outcome: quoted because it contains a colon"]
+    notes: [pytorch-tensors]          # note slugs, in reading order
+resources:               # optional
+  - title: PyTorch tutorials
+    url: https://pytorch.org/tutorials/
+    kind: tutorial       # docs | tutorial | course | book | video | article | tool
 ---
-Optional longer description in Markdown.
+Body in Markdown: why I'm learning it, how it fits with the rest of the stack, how to use the roadmap.
 ```
+
+Roadmap stage notes get a "Part of the X roadmap, stage N" banner and previous/next links on the note page. Other notes that reference the technology appear under "More notes".
+
+**YAML:** quote any value that contains `: ` (colon space) or starts with a special character (`[`, `{`, `*`, `&`, `!`, `#`, `|`, `>`, `@`, backtick). Unquoted, it breaks the build with "Nested mappings are not allowed in compact mappings".
 
 ## Note: `src/content/notes/<slug>.md`
 
@@ -99,9 +115,13 @@ Edit **only** `src/data/taxonomy.ts`: add the value to the right `as const` arra
 
 Languages are technologies, not taxonomy values. Create `src/content/technologies/<lang>.md` with `kind: [language]` and `language: []`, then reference its slug from other technologies' `language` arrays. The build checks that every `language` reference points to a technology of kind `language`.
 
-## Replacing the seed examples
+## Example flag
 
-Seed entries have `example: true` and show an "example" badge. Edit them in place (and drop the flag) or delete them. If you delete one, the build tells you about any reference still pointing at it.
+`example: true` on any technology, note, project or idea shows an "Example" badge. Use it for illustrative drafts; the starting curriculum (Python, Docker, PostgreSQL, SQLAlchemy, GitHub Actions) is real content and isn't flagged.
+
+## About page
+
+Experience and education entries are collections (above). The short "Who I am" introduction is in `src/pages/about.astro`. The CV download appears automatically when `public/cv.pdf` exists.
 
 ## Check your work
 

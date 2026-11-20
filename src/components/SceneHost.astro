@@ -5,10 +5,11 @@ import type { SceneId, SceneMode } from "../scenes/types";
 interface Props {
   scene: SceneId;
   mode?: SceneMode;
+  live?: boolean;
 }
 
 const { scene, mode = "full" } = Astro.props;
-const live = scene in SCENES;
+const live = (Astro.props.live ?? true) && scene in SCENES;
 ---
 
 <div

@@ -1,0 +1,122 @@
+---
+import type { FilterGroup } from "../lib/content";
+
+/**
+ * Filter chips + search around a list of [data-filter-item] elements (the default slot).
+ * Bound on the client by lib/filter-ui.ts; without JS the controls stay hidden and everything shows.
+ */
+interface Props {
+  id: string;
+  groups: FilterGroup[];
+  noun: string;
+  searchLabel: string;
+  searchHint?: string;
+}
+
+const { id, groups, noun, searchLabel, searchHint } = Astro.props;
+const keys = groups.map((g) => g.key);
+const labels = {
+  groups: Object.fromEntries(groups.map((g) => [g.key, g.label])),
+  values: Object.fromEntries(groups.map((g) => [g.key, Object.fromEntries(g.options.map((o) => [o.value, o.label]))])),
+};
+---
+
+<div class="filterable" id={id} data-filters data-keys={keys.join(",")} data-noun={noun}>
+  <form class="panel filters" data-filter-ui role="search" aria-label={`Filter ${noun}`} hidden>
+    <div class="filters__search">
+      <label for={`${id}-q`}>{searchLabel}</label>
+      <input id={`${id}-q`} name="q" type="search" autocomplete="off" spellcheck="false" aria-describedby={searchHint ? `${id}-hint` : undefined} />
+      {searchHint && <p class="filters__hint" id={`${id}-hint`}>{searchHint}</p>}
+    </div>
+    {
+      groups.map((g) => (
+        <fieldset data-group={g.key}>
+          <legend>{g.label}</legend>
+          <div class="chips">
+            {g.options.map((o) => (
+              <button type="button" class="chip" data-value={o.value} aria-pressed="false">
+                {o.label}
+                <span class="chip__count" aria-hidden="true">{o.count}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      ))
+    }
+    <div class="filters__foot">
+      <p class="filters__count" data-filter-count aria-live="polite"></p>
+      <button type="button" class="btn" data-filter-clear hidden>Clear filters</button>
+    </div>
+  </form>
+
+  <slot />
+
+  <div class="panel panel--solid empty" data-filter-empty hidden>
+    <p data-filter-empty-text></p>
+    <button type="button" class="btn" data-filter-reset>Show all {noun}</button>
+  </div>
+
+  <script type="application/json" data-filter-labels set:html={JSON.stringify(labels)} />
+</div>
+
+<style>
+  .filters {
+    display: grid;
+    gap: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+    background: var(--panel-solid);
+  }
+  .filters__search { display: grid; gap: var(--space-1); max-width: 520px; }
+  .filters__search label, legend {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--ink);
+    padding: 0;
+    margin-bottom: var(--space-1);
+  }
+  .filters__search input {
+    font: inherit;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--rule);
+    border-bottom-color: var(--cyan);
+    padding: var(--space-2) var(--space-3);
+  }
+  .filters__search input:focus-visible { outline: var(--focus); outline-offset: 2px; }
+  .filters__hint { font-size: var(--step--1); color: var(--ink-dim); margin: 0; }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: 500 0.9rem/1 var(--body);
+    color: var(--ink-dim);
+    background: var(--chip-bg);
+    border: 1px solid var(--rule);
+    padding: 7px 10px;
+    cursor: pointer;
+  }
+  .chip:hover { color: var(--ink); border-color: var(--ink-dim); }
+  .chip[aria-pressed="true"] {
+    color: var(--ink);
+    background: var(--chip-on);
+    border-color: var(--cyan);
+  }
+  .chip__count { font-size: 0.75rem; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .filters__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+  .filters__count { margin: 0; color: var(--ink-dim); font-size: var(--step--1); }
+  .empty { margin-top: var(--space-3); }
+  .empty p { margin-bottom: var(--space-3); }
+  @media (min-width: 900px) {
+    .filters { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .filters__search, .filters__foot { grid-column: 1 / -1; }
+  }
+</style>

@@ -1,0 +1,50 @@
+---
+import Filterable from "../../components/Filterable.astro";
+import PageIntro from "../../components/PageIntro.astro";
+import TechCard from "../../components/TechCard.astro";
+import { SECTIONS } from "../../data/profile";
+import { LIFECYCLES, STATUSES } from "../../data/taxonomy";
+import Landing from "../../layouts/Landing.astro";
+import { buildGroups, LABELS, loadSite, techFilters, techNameLabels } from "../../lib/content";
+
+const site = await loadSite();
+const section = SECTIONS.find((s) => s.href === "/stack")!;
+const groups = buildGroups(site.techs.map(techFilters), [
+  { key: "status", label: "Status", labels: LABELS.status, order: STATUSES },
+  { key: "language", label: "Used with", labels: techNameLabels(site) },
+  { key: "domain", label: "Domain", labels: LABELS.domain },
+  { key: "lifecycle", label: "Lifecycle", labels: LABELS.lifecycle, order: LIFECYCLES },
+  { key: "kind", label: "Kind", labels: LABELS.kind },
+]);
+---
+
+<Landing title={section.label} description={section.blurb} scene="metro">
+  <div class="wrap">
+    <PageIntro
+      title="Tech stack"
+      lede="What I'm learning and using. Each technology has a roadmap, plus every note, project and idea that touches it."
+    />
+    <Filterable id="stack" groups={groups} noun="technologies" searchLabel="Search by name">
+      <ul class="grid" role="list">
+        {site.techs.map((t) => <TechCard tech={t} />)}
+      </ul>
+    </Filterable>
+  </div>
+</Landing>
+
+<script>
+  import { bindFilters } from "../../lib/filter-ui";
+  const root = document.getElementById("stack");
+  if (root) bindFilters(root);
+</script>
+
+<style>
+  .grid {
+    list-style: none;
+    margin: 0 0 var(--space-6);
+    padding: 0;
+    display: grid;
+    gap: var(--space-3);
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  }
+</style>

@@ -1,0 +1,70 @@
+---
+import { render } from "astro:content";
+import Badge from "../../components/Badge.astro";
+import EntryList from "../../components/EntryList.astro";
+import TagList from "../../components/TagList.astro";
+import { IDEA_STATUS_LABELS, PROJECT_STATUS_LABELS } from "../../data/taxonomy";
+import Reading from "../../layouts/Reading.astro";
+import { formatDate, loadSite, type Project } from "../../lib/content";
+import { PROJECT_TONE } from "../../lib/tones";
+
+export async function getStaticPaths() {
+  const site = await loadSite();
+  return site.projects.map((project) => ({ params: { slug: project.id }, props: { project } }));
+}
+
+interface Props {
+  project: Project;
+}
+
+const { project } = Astro.props;
+const site = await loadSite();
+const d = project.data;
+const { Content } = await render(project);
+const origins = site.ideas.filter((i) => i.data.project?.id === project.id);
+---
+
+<Reading title={d.title} description={d.summary} scene="construction">
+  <header class="head">
+    <p class="crumb"><a href="/projects">Projects</a></p>
+    <h1 class="chroma glitch">{d.title}</h1>
+    <p class="lede">{d.summary}</p>
+    <div class="status">
+      <Badge tone={PROJECT_TONE[d.status]}>{PROJECT_STATUS_LABELS[d.status]}</Badge>
+      <span>Started {formatDate(d.started)}{d.ended && `, finished ${formatDate(d.ended)}`}</span>
+      {d.example && <Badge tone="amber" outline>Example</Badge>}
+    </div>
+    <TagList label="Stack" items={d.stack.map((r) => ({ label: site.tech.get(r.id)!.data.name, href: `/stack/${r.id}` }))} />
+    {
+      (d.repo || d.demo) && (
+        <p class="links">
+          {d.repo && <a href={d.repo}>Source code</a>}
+          {d.demo && <a href={d.demo}>Live demo</a>}
+        </p>
+      )
+    }
+  </header>
+
+  <div class="prose body">
+    <Content />
+  </div>
+
+  {
+    origins.length > 0 && (
+      <section class="section" aria-labelledby="origin-title">
+        <h2 id="origin-title">Where it came from</h2>
+        <EntryList entries={origins.map((i) => ({ href: `/ideas#${i.id}`, title: i.data.title, summary: i.data.summary, meta: IDEA_STATUS_LABELS[i.data.status] }))} />
+      </section>
+    )
+  }
+</Reading>
+
+<style>
+  .crumb { margin-bottom: var(--space-2); font-size: var(--step--1); }
+  .head { display: grid; gap: var(--space-3); margin-bottom: var(--space-5); padding-bottom: var(--space-4); border-bottom: 1px solid var(--rule); }
+  .head h1 { font-size: clamp(2.5rem, 6vw, 4rem); margin: 0; }
+  .lede { font-size: var(--step-1); max-width: 60ch; margin: 0; }
+  .status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); color: var(--ink-dim); font-size: var(--step--1); }
+  .links { display: flex; gap: var(--space-4); margin: 0; }
+  .section { margin-top: var(--space-6); }
+</style>

@@ -1,0 +1,42 @@
+---
+/** A compact list of linked entries (notes, projects, ideas, technologies) with optional meta line. */
+interface Entry {
+  href: string;
+  title: string;
+  summary?: string;
+  meta?: string;
+}
+
+interface Props {
+  entries: Entry[];
+  empty?: string;
+}
+
+const { entries, empty } = Astro.props;
+---
+
+{
+  entries.length > 0 ? (
+    <ul class="entries">
+      {entries.map((e) => (
+        <li>
+          <a href={e.href}>{e.title}</a>
+          {e.summary && <p>{e.summary}</p>}
+          {e.meta && <p class="entries__meta">{e.meta}</p>}
+        </li>
+      ))}
+    </ul>
+  ) : (
+    empty && <p class="entries__empty">{empty}</p>
+  )
+}
+
+<style>
+  .entries { list-style: none; margin: 0; padding: 0; }
+  .entries li { padding-block: var(--space-3); border-top: 1px solid var(--rule); }
+  .entries li:last-child { border-bottom: 1px solid var(--rule); }
+  .entries a { font-family: var(--display); font-weight: 600; font-size: 1.1rem; }
+  .entries p { margin: var(--space-1) 0 0; color: var(--ink-dim); font-size: 1rem; }
+  .entries .entries__meta { font-size: var(--step--1); }
+  .entries__empty { color: var(--ink-dim); }
+</style>

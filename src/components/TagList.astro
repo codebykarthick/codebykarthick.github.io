@@ -1,0 +1,40 @@
+---
+interface Props {
+  items: ReadonlyArray<{ label: string; href?: string }>;
+  label?: string;
+}
+
+const { items, label } = Astro.props;
+---
+
+{
+  items.length > 0 && (
+    <ul class="tags" aria-label={label}>
+      {items.map((t) => (
+        <li>{t.href ? <a href={t.href}>{t.label}</a> : <span>{t.label}</span>}</li>
+      ))}
+    </ul>
+  )
+}
+
+<style>
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .tags :is(a, span) {
+    display: inline-block;
+    font-size: 0.85rem;
+    line-height: 1.2;
+    padding: 4px 8px;
+    color: var(--ink-dim);
+    border: 1px solid var(--rule);
+    text-decoration: none;
+  }
+  .tags a { color: var(--cyan); }
+  .tags a:hover { color: var(--ink); border-color: var(--cyan); }
+</style>

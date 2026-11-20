@@ -1,0 +1,118 @@
+---
+import type { Site, Tech } from "../lib/content";
+
+interface Props {
+  tech: Tech;
+  site: Site;
+}
+
+const { tech, site } = Astro.props;
+const stages = tech.data.roadmap;
+---
+
+{
+  stages.length > 0 && (
+    <section class="roadmap" aria-labelledby="roadmap-title">
+      <h2 id="roadmap-title">Learning roadmap</h2>
+      <p class="roadmap__lede">
+        {stages.length} stages, in order. Each one ends with a check for when it's done, and links the notes that go with it.
+      </p>
+      <ol class="roadmap__stages">
+        {stages.map((s, i) => (
+          <li class="stage" id={`stage-${i + 1}`}>
+            <p class="stage__num" aria-hidden="true">
+              {String(i + 1).padStart(2, "0")}
+            </p>
+            <div class="stage__body">
+              <h3>{s.title}</h3>
+              <p class="stage__goal">{s.goal}</p>
+              <div class="stage__cols">
+                {s.learn.length > 0 && (
+                  <div>
+                    <h4>Learn</h4>
+                    <ul>{s.learn.map((x) => <li>{x}</li>)}</ul>
+                  </div>
+                )}
+                {s.practice.length > 0 && (
+                  <div>
+                    <h4>Practise</h4>
+                    <ul>{s.practice.map((x) => <li>{x}</li>)}</ul>
+                  </div>
+                )}
+                {s.doneWhen.length > 0 && (
+                  <div>
+                    <h4>Done when</h4>
+                    <ul class="stage__checks">{s.doneWhen.map((x) => <li>{x}</li>)}</ul>
+                  </div>
+                )}
+              </div>
+              {s.notes.length > 0 && (
+                <div class="stage__notes">
+                  <h4>Notes for this stage</h4>
+                  <ul>
+                    {s.notes.map((r) => {
+                      const n = site.note.get(r.id)!;
+                      return (
+                        <li>
+                          <a href={`/knowledge/${n.id}`}>{n.data.title}</a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+<style>
+  .roadmap { margin-top: var(--space-6); }
+  .roadmap__lede { color: var(--ink-dim); }
+  .roadmap__stages { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: grid; gap: var(--space-4); }
+  .stage {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: var(--space-3);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--rule);
+  }
+  .stage__num {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--cyan);
+    text-shadow: var(--chroma);
+    margin: 0;
+  }
+  .stage h3 { margin-bottom: var(--space-1); }
+  .stage__goal { color: var(--ink); }
+  .stage__cols { display: grid; gap: var(--space-3) var(--space-4); grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .stage h4 {
+    font-size: 0.95rem;
+    color: var(--amber);
+    margin: 0 0 var(--space-2);
+  }
+  .stage ul { margin: 0; padding-left: 1.1em; color: var(--ink-dim); font-size: 1rem; }
+  .stage li + li { margin-top: var(--space-1); }
+  .stage__checks { list-style: none; padding-left: 0 !important; }
+  .stage__checks li { position: relative; padding-left: 1.5em; }
+  .stage__checks li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.35em;
+    width: 0.8em;
+    height: 0.8em;
+    border: 1px solid var(--cyan);
+  }
+  .stage__notes { margin-top: var(--space-3); }
+  .stage__notes ul { color: var(--ink); }
+  @media (max-width: 600px) {
+    .stage { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

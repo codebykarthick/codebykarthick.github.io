@@ -1,0 +1,42 @@
+---
+/** Small status label. Tone maps to a palette colour; text always carries the meaning. */
+import type { Tone } from "../lib/tones";
+
+interface Props {
+  tone?: Tone;
+  outline?: boolean;
+}
+
+const { tone = "dim", outline = false } = Astro.props;
+---
+
+<span class:list={["badge", `badge--${tone}`, { "badge--outline": outline }]}><slot /></span>
+
+<style>
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: 0.8rem;
+    line-height: 1;
+    padding: 5px 8px;
+    color: var(--tone);
+    background: color-mix(in srgb, var(--tone) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tone) 40%, transparent);
+    white-space: nowrap;
+  }
+  .badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    background: var(--tone);
+  }
+  .badge--outline { background: transparent; }
+  .badge--outline::before { display: none; }
+  .badge--cyan { --tone: var(--cyan); }
+  .badge--pink { --tone: var(--pink); }
+  .badge--amber { --tone: var(--amber); }
+  .badge--dim { --tone: var(--ink-dim); }
+</style>
